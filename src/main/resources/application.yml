@@ -48,9 +48,13 @@ app:
     max-backoff: 6h
     lock-duration: 5m
     batch-size: 20
+    # One event at a time, at most one every 3s (~2-3 ClickUp calls each, i.e. ~60 calls/min, under ClickUp's
+    # 100/min limit). A run keeps going for up to 50s, then the next trigger (every minute) continues.
+    pacing: 3s
+    run-budget: 50s
     retention: 30d
     scheduler:
-      # In-process retries for local runs; on Cloud Run, Cloud Scheduler calls POST /admin/events/process-due.
+      # In-process trigger for local runs; on Cloud Run, Cloud Scheduler calls POST /admin/events/process-due.
       enabled: ${EVENT_SCHEDULER_ENABLED:true}
       interval: 60s
 

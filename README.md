@@ -10,12 +10,18 @@ POST /clickup/webhook
   -> signature verification (HMAC-SHA256 of the raw body with the webhook secret, X-Signature header)
   -> normalize payload into a ClickUpEvent
   -> store in webhook_event (unique idempotency key webhook_id:history_item_id, so duplicates are dropped)
-  -> immediate processing attempt: EventDispatcher -> EventHandler (business workflow) -> ClickUpClient
-  -> respond 200 (once stored, failures are ours to retry, not ClickUp's)
+  -> respond 200 immediately (no ClickUp calls in the request)
 
 POST /admin/events/process-due   (Cloud Scheduler, every minute; @Scheduled locally)
-  -> events that are due (FAILED with elapsed backoff, or stuck PROCESSING) are processed again
+  -> due events (new, FAILED with elapsed backoff, stuck PROCESSING) one at a time, at most one every 3s,
+     for up to 50s per run: EventDispatcher -> EventHandler (business workflow) -> ClickUpClient
 ```
+
+The webhook never does ClickUp work while ClickUp waits: during a burst (e.g. a bulk tag edit) it would hit
+ClickUp's rate limit (~100 calls/min), pile requests onto the single instance until Cloud Run answers 429, and
+ClickUp suspends webhooks that keep failing. Instead everything lands in the database and the job drains it at
+~60 ClickUp calls/min. A new event is handled within about a minute; a burst of 300 takes ~15 minutes.
+Tune `app.events.pacing` / `run-budget` in `application.yml`.
 
 ### Event inbox and retries
 

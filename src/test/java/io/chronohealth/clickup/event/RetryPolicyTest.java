@@ -11,7 +11,8 @@ import org.junit.jupiter.api.Test;
 class RetryPolicyTest {
 
     private final RetryPolicy policy = new RetryPolicy(new EventProperties(4, Duration.ofMinutes(1), Duration.ofMinutes(5),
-            Duration.ofMinutes(5), 10, Duration.ofDays(30), new EventProperties.Scheduler(false)));
+            Duration.ofMinutes(5), 10, Duration.ZERO, Duration.ofSeconds(10), Duration.ofDays(30),
+            new EventProperties.Scheduler(false)));
 
     @Test
     void backsOffExponentiallyUpToTheCap() {

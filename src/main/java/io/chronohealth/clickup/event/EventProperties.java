@@ -12,9 +12,11 @@ import org.springframework.validation.annotation.Validated;
  * @param initialBackoff delay after the first failure; doubles on each further failure
  * @param maxBackoff     cap for the delay between attempts
  * @param lockDuration   how long a PROCESSING claim is honoured before the event is considered stuck
- * @param batchSize      events processed per retry run
+ * @param batchSize      events fetched from the inbox per query
+ * @param pacing         minimum time between two events, to stay under ClickUp's rate limit
+ * @param runBudget      how long one run may keep processing (keep it below the trigger interval)
  * @param retention      how long SUCCEEDED events are kept
- * @param scheduler      in-process retry schedule; disabled on Cloud Run, where Cloud Scheduler calls the endpoint
+ * @param scheduler      in-process schedule; disabled on Cloud Run, where Cloud Scheduler calls the endpoint
  */
 @Validated
 @ConfigurationProperties("app.events")
@@ -24,6 +26,8 @@ public record EventProperties(
         @NotNull Duration maxBackoff,
         @NotNull Duration lockDuration,
         @Min(1) int batchSize,
+        @NotNull Duration pacing,
+        @NotNull Duration runBudget,
         @NotNull Duration retention,
         @Valid @NotNull Scheduler scheduler
 ) {

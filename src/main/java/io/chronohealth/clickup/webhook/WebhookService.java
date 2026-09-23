@@ -1,6 +1,5 @@
 package io.chronohealth.clickup.webhook;
 
-import io.chronohealth.clickup.event.EventProcessor;
 import io.chronohealth.clickup.event.EventRepository;
 import io.chronohealth.clickup.event.EventRepository.NewEvent;
 import java.util.Optional;
@@ -13,8 +12,9 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Webhook pipeline: signature verification -> normalization -> store in the event inbox (deduplicated by
- * idempotency key) -> immediate processing attempt. Anything that fails is retried later by the retry job, so
- * once an event is stored we always acknowledge it. Business rules live in {@link EventHandler}s.
+ * idempotency key) -> acknowledge. No ClickUp calls happen here: the endpoint must answer instantly even during
+ * bursts, or ClickUp counts failures and suspends the webhook. The inbox is worked through, paced, by
+ * {@link io.chronohealth.clickup.event.EventRetryJob}. Business rules live in {@link EventHandler}s.
  */
 @Service
 public class WebhookService {
@@ -26,17 +26,15 @@ public class WebhookService {
     private final WebhookSignatureVerifier signatureVerifier;
     private final EventNormalizer normalizer;
     private final EventRepository events;
-    private final EventProcessor processor;
 
     public WebhookService(JsonMapper jsonMapper, WebhookRegistrationStore registrations,
                           WebhookSignatureVerifier signatureVerifier, EventNormalizer normalizer,
-                          EventRepository events, EventProcessor processor) {
+                          EventRepository events) {
         this.jsonMapper = jsonMapper;
         this.registrations = registrations;
         this.signatureVerifier = signatureVerifier;
         this.normalizer = normalizer;
         this.events = events;
-        this.processor = processor;
     }
 
     public Outcome handle(byte[] rawBody, String signature) {
@@ -73,7 +71,6 @@ public class WebhookService {
             return Outcome.DUPLICATE;
         }
         log.info("Stored event {} ({}, task {})", eventId.get(), event.type(), event.taskId());
-        processor.process(eventId.get());
         return Outcome.ACCEPTED;
     }
 

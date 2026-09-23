@@ -76,9 +76,16 @@ class WebhookEndpointIntegrationTest {
     }
 
     @Test
-    void storesAndProcessesSignedEventOnlyOnce() throws Exception {
+    void webhookOnlyStoresTheEventAndTheJobProcessesItOnce() throws Exception {
         deliver(BODY);
         deliver(BODY);
+
+        // Acknowledged without touching ClickUp; duplicates dropped.
+        verify(dispatcher, never()).dispatch(any());
+        assertThat(onlyEvent().status()).isEqualTo(EventStatus.PENDING);
+
+        assertThat(retryJob.run().succeeded()).isEqualTo(1);
+        assertThat(retryJob.run().due()).isZero();
 
         verify(dispatcher, times(1)).dispatch(any());
         assertThat(onlyEvent().status()).isEqualTo(EventStatus.SUCCEEDED);
@@ -86,10 +93,23 @@ class WebhookEndpointIntegrationTest {
     }
 
     @Test
+    void jobDrainsABurstOneEventAtATime() throws Exception {
+        for (int i = 0; i < 25; i++) {
+            deliver(BODY.replace("hist-1", "hist-" + i));
+        }
+
+        EventRetryJob.RunResult result = retryJob.run();
+
+        assertThat(result.succeeded()).isEqualTo(25);
+        verify(dispatcher, times(25)).dispatch(any());
+    }
+
+    @Test
     void failedEventIsRetriedByTheRetryJob() throws Exception {
         doThrow(new ClickUpApiException(503, null)).doNothing().when(dispatcher).dispatch(any());
 
         deliver(BODY);
+        retryJob.run();
         StoredEvent failed = onlyEvent();
         assertThat(failed.status()).isEqualTo(EventStatus.FAILED);
         assertThat(failed.lastError()).contains("status=503");
@@ -110,6 +130,7 @@ class WebhookEndpointIntegrationTest {
         doThrow(new ClickUpApiException(400, "ITEM_015")).when(dispatcher).dispatch(any());
 
         deliver(BODY);
+        retryJob.run();
         assertThat(onlyEvent().status()).isEqualTo(EventStatus.DEAD);
 
         doNothing().when(dispatcher).dispatch(any());
