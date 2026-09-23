@@ -83,13 +83,35 @@ class TagSubtaskWorkflowTest {
     }
 
     @Test
-    void doesNotDuplicateExistingSubtask() {
-        Task existing = task("s1", "Backend | Fix login", null, List.of());
+    void doesNotCreateWhenASubtaskAlreadyHasTheTag() {
+        // Tag re-added after the parent was renamed: the existing backend subtask has a different title.
+        Task existing = task("s1", "Backend | Old title", null, List.of(), List.of(new Tag("Backend")));
         when(client.getTask("p1", true)).thenReturn(task("p1", "Fix login", null, List.of(existing)));
 
         workflow.handle(tagAdded("p1", "backend"));
 
         verify(client, never()).createSubtask(any(Task.class), any());
+    }
+
+    @Test
+    void doesNotCreateWhenASubtaskAlreadyHasTheTitle() {
+        Task existing = task("s1", "Backend | Fix login", null, List.of(), List.of());
+        when(client.getTask("p1", true)).thenReturn(task("p1", "Fix login", null, List.of(existing)));
+
+        workflow.handle(tagAdded("p1", "backend"));
+
+        verify(client, never()).createSubtask(any(Task.class), any());
+    }
+
+    @Test
+    void createsWhenOtherSubtasksDoNotHaveTheTag() {
+        Task other = task("s1", "Design review", null, List.of(), List.of(new Tag("frontend")));
+        Task parent = task("p1", "Fix login", null, List.of(other));
+        when(client.getTask("p1", true)).thenReturn(parent);
+
+        workflow.handle(tagAdded("p1", "backend"));
+
+        verify(client).createSubtask(eq(parent), any());
     }
 
     @Test
@@ -147,8 +169,13 @@ class TagSubtaskWorkflowTest {
     }
 
     private static Task task(String id, String name, Priority priority, List<Task> subtasks, CustomField... fields) {
-        return new Task(id, name, null, null, null, priority, new IdRef("list"), List.of(), List.of(new Tag("backend")),
-                List.of(fields), subtasks);
+        return task(id, name, priority, subtasks, List.of(new Tag("backend")), fields);
+    }
+
+    private static Task task(String id, String name, Priority priority, List<Task> subtasks, List<Tag> tags,
+                             CustomField... fields) {
+        return new Task(id, name, null, null, null, priority, new IdRef("list"), List.of(), tags, List.of(fields),
+                subtasks);
     }
 
     /**

@@ -29,11 +29,12 @@ import tools.jackson.databind.JsonNode;
  * <p>
  * Idempotent and loop-safe:
  * <ul>
- *   <li>only tags that were <em>added</em> in this event trigger a rule (the tag history item's {@code after});</li>
+ *   <li>only tags that were <em>added</em> in this event trigger a rule (the tag history item's {@code after});
+ *       removing a tag does nothing;</li>
  *   <li>tasks whose name already starts with the rule's prefix are skipped, so the generated subtask (which
  *       carries the same tag) never spawns another one;</li>
- *   <li>if the parent already has a subtask with the target title, nothing is created, so retries and
- *       removing/re-adding the tag don't duplicate it.</li>
+ *   <li>if the parent already has a subtask carrying the rule's tag (or the target title), nothing is created,
+ *       so re-adding the tag and retries don't duplicate it.</li>
  * </ul>
  * The subtask is created in a single API call (fields included), so a failure never leaves a half-built subtask.
  */
@@ -85,7 +86,9 @@ public class TagSubtaskWorkflow implements EventHandler {
             return;
         }
         String title = rule.titlePrefix() + name;
-        Optional<Task> existing = parent.subtasksOrEmpty().stream().filter(t -> title.equals(t.name())).findFirst();
+        Optional<Task> existing = parent.subtasksOrEmpty().stream()
+                .filter(t -> hasTag(t, rule.tag()) || title.equals(t.name()))
+                .findFirst();
         if (existing.isPresent()) {
             log.info("Task {} already has the '{}' subtask {}; skipping", parent.id(), rule.tag(), existing.get().id());
             return;
@@ -129,6 +132,11 @@ public class TagSubtaskWorkflow implements EventHandler {
                     fieldName, rule.tag(), parent.id());
         }
         return field;
+    }
+
+    private static boolean hasTag(Task task, String tag) {
+        return task.tags() != null && task.tags().stream()
+                .anyMatch(t -> t.name() != null && normalize(t.name()).equals(normalize(tag)));
     }
 
     /**
