@@ -92,7 +92,10 @@ class CopyParentFieldsWorkflowTest {
                 "https://auth", Duration.ofSeconds(1), Duration.ofSeconds(1),
                 new ClickUpProperties.RateLimit(0, Duration.ofSeconds(1)),
                 new ClickUpProperties.Workflows(new ClickUpProperties.CopyParentFields(true, mappings, parentType),
-                        new ClickUpProperties.TagSubtasks(false, List.of())));
+                        new ClickUpProperties.TagSubtasks(false, List.of()),
+                        new ClickUpProperties.ParentStatus(false, List.of(), List.of(), "in progress", List.of(),
+                                "ready for testing"),
+                        new ClickUpProperties.CreateDefaults(false, List.of())));
         return new CopyParentFieldsWorkflow(factory, new CustomFieldValueMapper(), properties, MAPPER);
     }
 

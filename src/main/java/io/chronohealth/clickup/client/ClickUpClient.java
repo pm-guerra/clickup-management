@@ -5,6 +5,7 @@ import io.chronohealth.clickup.client.dto.CustomFieldValue;
 import io.chronohealth.clickup.client.dto.CustomTaskType;
 import io.chronohealth.clickup.client.dto.NewSubtask;
 import io.chronohealth.clickup.client.dto.Task;
+import io.chronohealth.clickup.client.dto.TaskStatus;
 import io.chronohealth.clickup.client.dto.TaskUpdate;
 import io.chronohealth.clickup.client.dto.User;
 import io.chronohealth.clickup.client.dto.Webhook;
@@ -45,6 +46,14 @@ public class ClickUpClient {
     public List<CustomTaskType> getCustomTaskTypes(String workspaceId) {
         return http.execute("getCustomTaskTypes", () -> api().get().uri("/team/{workspaceId}/custom_item", workspaceId)
                 .retrieve().body(CustomTaskTypesResponse.class).customItems());
+    }
+
+    /**
+     * The list's statuses in board order ({@code orderindex}).
+     */
+    public List<TaskStatus> getListStatuses(String listId) {
+        return http.execute("getListStatuses", () -> api().get().uri("/list/{listId}", listId)
+                .retrieve().body(ListResponse.class).statuses());
     }
 
     public Task getTask(String taskId) {
@@ -129,6 +138,9 @@ public class ClickUpClient {
     }
 
     private record CustomTaskTypesResponse(List<CustomTaskType> customItems) {
+    }
+
+    private record ListResponse(String id, List<TaskStatus> statuses) {
     }
 
     private record TeamsResponse(List<Workspace> teams) {

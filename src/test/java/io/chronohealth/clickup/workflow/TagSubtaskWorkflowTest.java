@@ -218,7 +218,10 @@ class TagSubtaskWorkflowTest {
                 "https://auth", Duration.ofSeconds(1), Duration.ofSeconds(1),
                 new ClickUpProperties.RateLimit(0, Duration.ofSeconds(1)),
                 new ClickUpProperties.Workflows(new ClickUpProperties.CopyParentFields(false, "{}", ""),
-                        new ClickUpProperties.TagSubtasks(enabled, rules)));
+                        new ClickUpProperties.TagSubtasks(enabled, rules),
+                        new ClickUpProperties.ParentStatus(false, List.of(), List.of(), "in progress", List.of(),
+                                "ready for testing"),
+                        new ClickUpProperties.CreateDefaults(false, List.of())));
         return new TagSubtaskWorkflow(factory, new CustomFieldValueMapper(), new TaskTypeResolver(), properties);
     }
 

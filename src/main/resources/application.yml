@@ -78,6 +78,24 @@ clickup:
       field-mappings: ${CLICKUP_CUSTOM_FIELD_MAPPINGS:{}}
       # Optional: only copy when the parent's custom task type id matches (e.g. the "Bug" type).
       parent-custom-item-id: ${CLICKUP_BUG_CUSTOM_ITEM_ID:}
+    # When a task is created, set field defaults by task type (see CreateDefaultsWorkflow).
+    create-defaults:
+      enabled: true
+      rules:
+        - task-types: [Bug, Change]
+          field: maintenance
+          value: "true"
+    # When a subtask's status changes, move its parent forward (see ParentStatusWorkflow). Never moves a parent
+    # backwards: it only changes if the target comes later in the list's status order than the current status.
+    parent-status:
+      enabled: true
+      parent-types: [Story, Bug, Change]
+      # At least one subtask in one of these -> parent to "in progress"
+      started-statuses: [in progress, review, blocked, ready for testing, complete]
+      started-target: in progress
+      # All subtasks in one of these -> parent to "ready for testing" (takes precedence)
+      done-statuses: [complete]
+      done-target: ready for testing
     # When a tag is added to a task, create a subtask under it (see TagSubtaskWorkflow).
     # Fields are matched by name on the parent's list; missing fields are skipped with a warning.
     tag-subtasks:

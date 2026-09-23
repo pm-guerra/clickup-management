@@ -85,6 +85,27 @@ the list is skipped with a warning. Add more rules (e.g. `frontend`) in `applica
 The webhook subscribes to exactly the events the enabled workflows handle; after enabling/disabling a workflow,
 re-register it with `POST /admin/clickup/webhook`.
 
+### Workflow: defaults on create (`CreateDefaultsWorkflow`)
+
+On `taskCreated`, a new **Bug** or **Change** gets `maintenance` = true (skipped if it's already set, or if the
+field isn't on the task's list). Rules live in `clickup.workflows.create-defaults`. Only creation triggers it:
+changing an existing task's type to Bug later doesn't.
+
+### Workflow: subtask status -> parent status (`ParentStatusWorkflow`)
+
+On `taskStatusUpdated` for a subtask whose parent is a **Story, Bug or Change**, looks at *all* the parent's direct
+subtasks (including closed ones):
+
+- all subtasks `complete` -> parent to **ready for testing**;
+- otherwise, at least one subtask `in progress` / `review` / `blocked` / `ready for testing` / `complete` -> parent
+  to **in progress**;
+- otherwise nothing. (`complete mobile` / `complete web` count as neither.)
+
+**Forward only:** the parent moves only if the target status comes later in the list's status order than its
+current one, so a parent already at e.g. `review` or `ready for testing` is never pulled back. The parent's own
+status change is then evaluated for *its* parent (if it has one), so changes propagate upwards and stop at the top.
+Statuses and types are configured in `clickup.workflows.parent-status`.
+
 ### Workflow: copy parent Bug fields to new subtasks (disabled until mappings are configured)
 
 `CopyParentFieldsWorkflow` handles `taskCreated`: fetches the new task, its parent (optionally only if the parent is

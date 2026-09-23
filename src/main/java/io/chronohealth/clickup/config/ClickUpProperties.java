@@ -26,7 +26,61 @@ public record ClickUpProperties(
     public record RateLimit(int maxRetries, @NotNull Duration maxWait) {
     }
 
-    public record Workflows(@Valid @NotNull CopyParentFields copyParentFields, @Valid @NotNull TagSubtasks tagSubtasks) {
+    public record Workflows(@Valid @NotNull CopyParentFields copyParentFields, @Valid @NotNull TagSubtasks tagSubtasks,
+                            @Valid @NotNull ParentStatus parentStatus, @Valid @NotNull CreateDefaults createDefaults) {
+    }
+
+    /**
+     * Field defaults applied when a task is created (see CreateDefaultsWorkflow).
+     */
+    public record CreateDefaults(boolean enabled, List<@Valid CreateDefault> rules) {
+
+        public List<CreateDefault> rulesOrEmpty() {
+            return rules == null ? List.of() : rules;
+        }
+    }
+
+    /**
+     * @param taskTypes task type names this default applies to (case-insensitive)
+     * @param field     custom field name (matched case-insensitively on the task's list)
+     * @param value     value as text, converted to the field's type (e.g. "true" for a checkbox)
+     */
+    public record CreateDefault(List<String> taskTypes, @NotBlank String field, @NotNull String value) {
+
+        public List<String> taskTypesOrEmpty() {
+            return taskTypes == null ? List.of() : taskTypes;
+        }
+    }
+
+    /**
+     * Moves a parent's status forward based on its subtasks' statuses (see ParentStatusWorkflow).
+     *
+     * @param parentTypes     only parents of these task types are managed (empty = any)
+     * @param startedStatuses any subtask in one of these -> parent to {@code startedTarget}
+     * @param startedTarget   e.g. "in progress"
+     * @param doneStatuses    all subtasks in one of these -> parent to {@code doneTarget}
+     * @param doneTarget      e.g. "ready for testing"
+     */
+    public record ParentStatus(
+            boolean enabled,
+            List<String> parentTypes,
+            List<String> startedStatuses,
+            @NotBlank String startedTarget,
+            List<String> doneStatuses,
+            @NotBlank String doneTarget
+    ) {
+
+        public List<String> parentTypesOrEmpty() {
+            return parentTypes == null ? List.of() : parentTypes;
+        }
+
+        public List<String> startedStatusesOrEmpty() {
+            return startedStatuses == null ? List.of() : startedStatuses;
+        }
+
+        public List<String> doneStatusesOrEmpty() {
+            return doneStatuses == null ? List.of() : doneStatuses;
+        }
     }
 
     /**

@@ -1,4 +1,7 @@
 package io.chronohealth.clickup.client.dto;
 
-public record TaskStatus(String status, String type) {
+/**
+ * @param orderindex position of the status in its list's board order
+ */
+public record TaskStatus(String status, String type, Integer orderindex) {
 }
