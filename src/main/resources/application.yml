@@ -84,7 +84,9 @@ clickup:
           status: to do
           tags: [backend]
           set-fields:
-            maintenance: "true"
+            - field: maintenance
+              value: "true"
+              parent-types: [Bug, Change]
           copy-fields:
             - Pre Go Live
           copy-priority: true

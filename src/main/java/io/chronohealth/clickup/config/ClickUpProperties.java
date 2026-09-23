@@ -5,7 +5,6 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
@@ -37,7 +36,7 @@ public record ClickUpProperties(
     public record CopyParentFields(boolean enabled, String fieldMappings, String parentCustomItemId) {
     }
 
-    public record TagSubtasks(boolean enabled, @Valid List<TagSubtaskRule> rules) {
+    public record TagSubtasks(boolean enabled, List<@Valid TagSubtaskRule> rules) {
 
         public List<TagSubtaskRule> rulesOrEmpty() {
             return rules == null ? List.of() : rules;
@@ -51,7 +50,7 @@ public record ClickUpProperties(
      * @param titlePrefix  subtask title is {@code titlePrefix + parent name}
      * @param status       status of the new subtask (must exist in the parent's list)
      * @param tags         tags for the new subtask
-     * @param setFields    custom field name -> fixed value (converted to the field's type)
+     * @param setFields    custom fields set to a fixed value, optionally only for some parent task types
      * @param copyFields   custom field names copied from the parent
      * @param copyPriority copy the parent's priority
      */
@@ -60,7 +59,7 @@ public record ClickUpProperties(
             @NotBlank String titlePrefix,
             String status,
             List<String> tags,
-            Map<String, String> setFields,
+            List<@Valid FixedField> setFields,
             List<String> copyFields,
             boolean copyPriority
     ) {
@@ -69,12 +68,25 @@ public record ClickUpProperties(
             return tags == null ? List.of() : tags;
         }
 
-        public Map<String, String> setFieldsOrEmpty() {
-            return setFields == null ? Map.of() : setFields;
+        public List<FixedField> setFieldsOrEmpty() {
+            return setFields == null ? List.of() : setFields;
         }
 
         public List<String> copyFieldsOrEmpty() {
             return copyFields == null ? List.of() : copyFields;
+        }
+    }
+
+    /**
+     * @param field       custom field name (matched case-insensitively on the parent's list)
+     * @param value       value as text, converted to the field's type (e.g. "true" for a checkbox)
+     * @param parentTypes when non-empty, only set if the parent's task type name is one of these
+     *                    (case-insensitive; the built-in type is "Task")
+     */
+    public record FixedField(@NotBlank String field, @NotNull String value, List<String> parentTypes) {
+
+        public List<String> parentTypesOrEmpty() {
+            return parentTypes == null ? List.of() : parentTypes;
         }
     }
 }

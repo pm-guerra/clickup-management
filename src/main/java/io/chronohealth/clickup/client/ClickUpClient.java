@@ -2,6 +2,7 @@ package io.chronohealth.clickup.client;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import io.chronohealth.clickup.client.dto.CustomFieldValue;
+import io.chronohealth.clickup.client.dto.CustomTaskType;
 import io.chronohealth.clickup.client.dto.NewSubtask;
 import io.chronohealth.clickup.client.dto.Task;
 import io.chronohealth.clickup.client.dto.TaskUpdate;
@@ -36,6 +37,14 @@ public class ClickUpClient {
     public List<Workspace> getAuthorizedWorkspaces() {
         return http.execute("getAuthorizedWorkspaces", () -> api().get().uri("/team")
                 .retrieve().body(TeamsResponse.class).teams());
+    }
+
+    /**
+     * Custom task types of the Workspace ("Bug", "Epic", ...). The built-in "Task" type isn't listed.
+     */
+    public List<CustomTaskType> getCustomTaskTypes(String workspaceId) {
+        return http.execute("getCustomTaskTypes", () -> api().get().uri("/team/{workspaceId}/custom_item", workspaceId)
+                .retrieve().body(CustomTaskTypesResponse.class).customItems());
     }
 
     public Task getTask(String taskId) {
@@ -117,6 +126,9 @@ public class ClickUpClient {
     }
 
     private record UserResponse(User user) {
+    }
+
+    private record CustomTaskTypesResponse(List<CustomTaskType> customItems) {
     }
 
     private record TeamsResponse(List<Workspace> teams) {

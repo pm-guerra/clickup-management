@@ -14,6 +14,7 @@ import io.chronohealth.clickup.client.ClickUpClient;
 import io.chronohealth.clickup.client.ClickUpClientFactory;
 import io.chronohealth.clickup.client.dto.CustomField;
 import io.chronohealth.clickup.client.dto.CustomFieldValue;
+import io.chronohealth.clickup.client.dto.CustomTaskType;
 import io.chronohealth.clickup.client.dto.IdRef;
 import io.chronohealth.clickup.client.dto.NewSubtask;
 import io.chronohealth.clickup.client.dto.Priority;
@@ -24,7 +25,6 @@ import io.chronohealth.clickup.webhook.ClickUpEvent;
 import io.chronohealth.clickup.webhook.ClickUpWebhookPayload.HistoryItem;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -35,8 +35,12 @@ class TagSubtaskWorkflowTest {
 
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
     private static final ClickUpProperties.TagSubtaskRule BACKEND = new ClickUpProperties.TagSubtaskRule(
-            "backend", "Backend | ", "to do", List.of("backend"), Map.of("maintenance", "true"),
+            "backend", "Backend | ", "to do", List.of("backend"),
+            List.of(new ClickUpProperties.FixedField("maintenance", "true", List.of("Bug", "Change"))),
             List.of("Pre Go Live"), true);
+    private static final long BUG = 1001L;
+    private static final long CHANGE = 1002L;
+    private static final long EPIC = 1003L;
 
     private final ClickUpClientFactory factory = mock(ClickUpClientFactory.class);
     private final ClickUpClient client = mock(ClickUpClient.class);
@@ -46,12 +50,14 @@ class TagSubtaskWorkflowTest {
     void setUp() {
         when(factory.forWorkspace("ws")).thenReturn(client);
         when(client.createSubtask(any(Task.class), any())).thenReturn(task("new", "x", null, List.of()));
+        when(client.getCustomTaskTypes("ws")).thenReturn(List.of(
+                new CustomTaskType(BUG, "Bug"), new CustomTaskType(CHANGE, "change"), new CustomTaskType(EPIC, "Epic")));
     }
 
     @Test
     void createsBackendSubtaskWithFieldsPriorityStatusAndTag() {
-        Task parent = task("p1", "Fix login", new Priority("2", "high"), List.of(),
-                field("f-maint", "maintenance", null), field("f-pgl", "Pre Go Live", "true"));
+        Task parent = typed(BUG, task("p1", "Fix login", new Priority("2", "high"), List.of(),
+                field("f-maint", "maintenance", null), field("f-pgl", "Pre Go Live", "true")));
         when(client.getTask("p1", true)).thenReturn(parent);
 
         workflow.handle(tagAdded("p1", "backend"));
@@ -66,6 +72,13 @@ class TagSubtaskWorkflowTest {
         assertThat(subtask.customFields()).containsExactlyInAnyOrder(
                 new CustomFieldValue("f-maint", true),
                 new CustomFieldValue("f-pgl", true));
+    }
+
+    @Test
+    void setsMaintenanceOnlyUnderBugOrChange() {
+        assertMaintenance(CHANGE, true);
+        assertMaintenance(EPIC, false);
+        assertMaintenance(null, false);
     }
 
     @Test
@@ -156,7 +169,7 @@ class TagSubtaskWorkflowTest {
                 new ClickUpProperties.RateLimit(0, Duration.ofSeconds(1)),
                 new ClickUpProperties.Workflows(new ClickUpProperties.CopyParentFields(false, "{}", ""),
                         new ClickUpProperties.TagSubtasks(enabled, List.of(BACKEND))));
-        return new TagSubtaskWorkflow(factory, new CustomFieldValueMapper(), properties);
+        return new TagSubtaskWorkflow(factory, new CustomFieldValueMapper(), new TaskTypeResolver(), properties);
     }
 
     private static ClickUpEvent tagAdded(String taskId, String tag) {
@@ -176,6 +189,27 @@ class TagSubtaskWorkflowTest {
                              CustomField... fields) {
         return new Task(id, name, null, null, null, priority, new IdRef("list"), List.of(), tags, List.of(fields),
                 subtasks);
+    }
+
+    private void assertMaintenance(Long parentType, boolean expected) {
+        Task parent = typed(parentType, task("p-" + parentType, "Fix login", null, List.of(),
+                field("f-maint", "maintenance", null)));
+        when(client.getTask(parent.id(), true)).thenReturn(parent);
+
+        workflow.handle(tagAdded(parent.id(), "backend"));
+
+        ArgumentCaptor<NewSubtask> captor = ArgumentCaptor.forClass(NewSubtask.class);
+        verify(client).createSubtask(eq(parent), captor.capture());
+        if (expected) {
+            assertThat(captor.getValue().customFields()).containsExactly(new CustomFieldValue("f-maint", true));
+        } else {
+            assertThat(captor.getValue().customFields()).isNull();
+        }
+    }
+
+    private static Task typed(Long customItemId, Task t) {
+        return new Task(t.id(), t.name(), t.parent(), customItemId, t.status(), t.priority(), t.list(), t.assignees(),
+                t.tags(), t.customFields(), t.subtasks());
     }
 
     /**
