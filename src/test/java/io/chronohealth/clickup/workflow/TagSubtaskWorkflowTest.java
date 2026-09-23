@@ -35,12 +35,13 @@ class TagSubtaskWorkflowTest {
 
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
     private static final ClickUpProperties.TagSubtaskRule BACKEND = new ClickUpProperties.TagSubtaskRule(
-            "backend", "Backend | ", "to do", List.of("backend"),
+            "backend", List.of("Story", "Bug", "Change"), "Backend | ", "to do", List.of("backend"),
             List.of(new ClickUpProperties.FixedField("maintenance", "true", List.of("Bug", "Change"))),
             List.of("Pre Go Live"), true);
     private static final long BUG = 1001L;
     private static final long CHANGE = 1002L;
     private static final long EPIC = 1003L;
+    private static final long STORY = 1004L;
 
     private final ClickUpClientFactory factory = mock(ClickUpClientFactory.class);
     private final ClickUpClient client = mock(ClickUpClient.class);
@@ -51,7 +52,8 @@ class TagSubtaskWorkflowTest {
         when(factory.forWorkspace("ws")).thenReturn(client);
         when(client.createSubtask(any(Task.class), any())).thenReturn(task("new", "x", null, List.of()));
         when(client.getCustomTaskTypes("ws")).thenReturn(List.of(
-                new CustomTaskType(BUG, "Bug"), new CustomTaskType(CHANGE, "change"), new CustomTaskType(EPIC, "Epic")));
+                new CustomTaskType(BUG, "Bug"), new CustomTaskType(CHANGE, "change"), new CustomTaskType(EPIC, "Epic"),
+                new CustomTaskType(STORY, "Story")));
     }
 
     @Test
@@ -77,8 +79,32 @@ class TagSubtaskWorkflowTest {
     @Test
     void setsMaintenanceOnlyUnderBugOrChange() {
         assertMaintenance(CHANGE, true);
-        assertMaintenance(EPIC, false);
-        assertMaintenance(null, false);
+        assertMaintenance(STORY, false);
+    }
+
+    @Test
+    void onlyStoriesBugsAndChangesTriggerTheRule() {
+        for (Long type : new Long[]{EPIC, null}) {
+            Task parent = typed(type, task("p-" + type, "Fix login", null, List.of()));
+            when(client.getTask(parent.id(), true)).thenReturn(parent);
+
+            workflow.handle(tagAdded(parent.id(), "backend"));
+        }
+
+        verify(client, never()).createSubtask(any(Task.class), any());
+    }
+
+    @Test
+    void taggingAGeneratedSubtaskWithAnotherTagDoesNotNest() {
+        // "Backend | X" has the default Task type; adding "web" to it must not create "Web | Backend | X".
+        ClickUpProperties.TagSubtaskRule web = new ClickUpProperties.TagSubtaskRule("web",
+                List.of("Story", "Bug", "Change"), "Web | ", "to do", List.of("web"), List.of(), List.of(), true);
+        Task generated = typed(null, task("s1", "Backend | Fix login", null, List.of()));
+        when(client.getTask("s1", true)).thenReturn(generated);
+
+        workflow(true, List.of(BACKEND, web)).handle(tagAdded("s1", "web"));
+
+        verify(client, never()).createSubtask(any(Task.class), any());
     }
 
     @Test
@@ -129,10 +155,10 @@ class TagSubtaskWorkflowTest {
 
     @Test
     void createsOneSubtaskPerAddedTagAndSkipsTagsThatAlreadyHaveOne() {
-        ClickUpProperties.TagSubtaskRule web = new ClickUpProperties.TagSubtaskRule("web", "Web | ", "to do",
-                List.of("web"), List.of(), List.of(), true);
-        ClickUpProperties.TagSubtaskRule mobile = new ClickUpProperties.TagSubtaskRule("mobile", "Mobile | ", "to do",
-                List.of("mobile"), List.of(), List.of(), true);
+        ClickUpProperties.TagSubtaskRule web = new ClickUpProperties.TagSubtaskRule("web", List.of(), "Web | ",
+                "to do", List.of("web"), List.of(), List.of(), true);
+        ClickUpProperties.TagSubtaskRule mobile = new ClickUpProperties.TagSubtaskRule("mobile", List.of(), "Mobile | ",
+                "to do", List.of("mobile"), List.of(), List.of(), true);
         TagSubtaskWorkflow multi = workflow(true, List.of(BACKEND, web, mobile));
         Task existingMobile = task("s1", "Mobile | Fix login", null, List.of(), List.of(new Tag("mobile")));
         Task parent = task("p1", "Fix login", null, List.of(existingMobile));
@@ -211,7 +237,7 @@ class TagSubtaskWorkflowTest {
 
     private static Task task(String id, String name, Priority priority, List<Task> subtasks, List<Tag> tags,
                              CustomField... fields) {
-        return new Task(id, name, null, null, null, priority, new IdRef("list"), List.of(), tags, List.of(fields),
+        return new Task(id, name, null, STORY, null, priority, new IdRef("list"), List.of(), tags, List.of(fields),
                 subtasks);
     }
 

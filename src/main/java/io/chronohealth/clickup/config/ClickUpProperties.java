@@ -47,6 +47,9 @@ public record ClickUpProperties(
      * When {@code tag} is added to a task, create a subtask under it.
      *
      * @param tag          tag that triggers the rule (case-insensitive)
+     * @param taskTypes    when non-empty, only tasks of these types trigger the rule (case-insensitive type names;
+     *                     the built-in type is "Task"). Generated subtasks have the built-in type, so restricting
+     *                     this to e.g. Story/Bug/Change also rules out nesting.
      * @param titlePrefix  subtask title is {@code titlePrefix + parent name}
      * @param status       status of the new subtask (must exist in the parent's list)
      * @param tags         tags for the new subtask
@@ -56,6 +59,7 @@ public record ClickUpProperties(
      */
     public record TagSubtaskRule(
             @NotBlank String tag,
+            List<String> taskTypes,
             @NotBlank String titlePrefix,
             String status,
             List<String> tags,
@@ -63,6 +67,10 @@ public record ClickUpProperties(
             List<String> copyFields,
             boolean copyPriority
     ) {
+
+        public List<String> taskTypesOrEmpty() {
+            return taskTypes == null ? List.of() : taskTypes;
+        }
 
         public List<String> tagsOrEmpty() {
             return tags == null ? List.of() : tags;

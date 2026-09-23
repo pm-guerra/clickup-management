@@ -49,7 +49,7 @@ Admin (all need `X-Admin-Key`): `GET /admin/events?status=FAILED|DEAD|...`, `GET
 ### Workflow: tag -> subtask (`TagSubtaskWorkflow`)
 
 On `taskTagUpdated`, for each tag *added* that matches a rule in `clickup.workflows.tag-subtasks.rules`, creates a
-subtask under the tagged task (any task type) in one API call. Current rules, all identical except tag and title:
+subtask under the tagged task (Story, Bug or Change only) in one API call. Current rules, all identical except tag and title:
 
 | Tag       | Subtask title             | Subtask tag |
 |-----------|---------------------------|-------------|
@@ -64,6 +64,8 @@ Each subtask:
   resolved from the workspace's custom task types (cached; reloaded when an unknown type id appears)
 
 Guardrails:
+- only tasks of type **Story, Bug or Change** trigger the rules (`task-types`). Generated subtasks have the default
+  "Task" type, so tagging them never creates more subtasks (no nesting);
 - removing a tag does nothing;
 - if the parent already has a subtask carrying the rule's tag (e.g. `web`), or titled with the rule's title
   (e.g. `Web | <name>`), nothing is created for that rule, so re-adding the tag and retries don't duplicate it;

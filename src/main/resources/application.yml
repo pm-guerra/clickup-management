@@ -80,6 +80,7 @@ clickup:
       enabled: true
       rules:
         - tag: backend
+          task-types: [Story, Bug, Change]
           title-prefix: "Backend | "
           status: to do
           tags: [backend]
@@ -91,6 +92,7 @@ clickup:
             - Pre Go Live
           copy-priority: true
         - tag: web
+          task-types: [Story, Bug, Change]
           title-prefix: "Web | "
           status: to do
           tags: [web]
@@ -102,6 +104,7 @@ clickup:
             - Pre Go Live
           copy-priority: true
         - tag: mobile
+          task-types: [Story, Bug, Change]
           title-prefix: "Mobile | "
           status: to do
           tags: [mobile]
