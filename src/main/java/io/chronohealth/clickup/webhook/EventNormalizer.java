@@ -5,14 +5,21 @@ import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import org.springframework.stereotype.Component;
 
 @Component
 public class EventNormalizer {
 
+    /**
+     * History fields whose before/after values are kept: tag names are workspace metadata, not task content.
+     */
+    private static final Set<String> FIELDS_WITH_SAFE_VALUES = Set.of("tag", "tag_removed");
+
     public ClickUpEvent normalize(ClickUpWebhookPayload payload, WebhookRegistration registration, byte[] rawBody) {
-        List<ClickUpWebhookPayload.HistoryItem> historyItems =
-                payload.historyItems() == null ? List.of() : payload.historyItems();
+        List<ClickUpWebhookPayload.HistoryItem> historyItems = payload.historyItems() == null
+                ? List.of()
+                : payload.historyItems().stream().map(EventNormalizer::stripUnsafeValues).toList();
         return new ClickUpEvent(
                 idempotencyKey(payload.webhookId(), historyItems, rawBody),
                 payload.webhookId(),
@@ -36,6 +43,10 @@ public class EventNormalizer {
         String key = webhookId + ":" + suffix;
         // Keep within the column size; hashing preserves determinism.
         return key.length() <= 255 ? key : webhookId + ":hash-" + sha256(suffix.getBytes());
+    }
+
+    private static ClickUpWebhookPayload.HistoryItem stripUnsafeValues(ClickUpWebhookPayload.HistoryItem item) {
+        return item.field() != null && FIELDS_WITH_SAFE_VALUES.contains(item.field()) ? item : item.withoutValues();
     }
 
     private static String sha256(byte[] data) {

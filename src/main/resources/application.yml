@@ -66,9 +66,7 @@ clickup:
   rate-limit:
     max-retries: 3
     max-wait: 60s
-  # Only the events the workflows need. Avoid "*".
-  webhook-events:
-    - taskCreated
+  # The webhook subscribes to exactly the events the enabled workflows handle (no "*").
   workflows:
     copy-parent-fields:
       enabled: true
@@ -76,3 +74,17 @@ clickup:
       field-mappings: ${CLICKUP_CUSTOM_FIELD_MAPPINGS:{}}
       # Optional: only copy when the parent's custom task type id matches (e.g. the "Bug" type).
       parent-custom-item-id: ${CLICKUP_BUG_CUSTOM_ITEM_ID:}
+    # When a tag is added to a task, create a subtask under it (see TagSubtaskWorkflow).
+    # Fields are matched by name on the parent's list; missing fields are skipped with a warning.
+    tag-subtasks:
+      enabled: true
+      rules:
+        - tag: backend
+          title-prefix: "Backend | "
+          status: to do
+          tags: [backend]
+          set-fields:
+            maintenance: "true"
+          copy-fields:
+            - Pre Go Live
+          copy-priority: true

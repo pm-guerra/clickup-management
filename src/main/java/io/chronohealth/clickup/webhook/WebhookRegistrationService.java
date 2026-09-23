@@ -7,6 +7,7 @@ import io.chronohealth.clickup.client.dto.Webhook;
 import io.chronohealth.clickup.config.AppProperties;
 import io.chronohealth.clickup.config.ClickUpProperties;
 import java.time.Clock;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import org.slf4j.Logger;
@@ -24,25 +25,32 @@ public class WebhookRegistrationService {
     private final WebhookRegistrationStore store;
     private final AppProperties appProperties;
     private final ClickUpProperties clickUpProperties;
+    private final Collection<EventHandler> handlers;
     private final Clock clock;
 
     public WebhookRegistrationService(ClickUpClientFactory clientFactory, WebhookRegistrationStore store,
-                                      AppProperties appProperties, ClickUpProperties clickUpProperties, Clock clock) {
+                                      AppProperties appProperties, ClickUpProperties clickUpProperties,
+                                      Collection<EventHandler> handlers, Clock clock) {
         this.clientFactory = clientFactory;
         this.store = store;
         this.appProperties = appProperties;
         this.clickUpProperties = clickUpProperties;
+        this.handlers = handlers;
         this.clock = clock;
     }
 
     /**
-     * Registers the webhook for the configured Workspace at {@code APP_BASE_URL/clickup/webhook}.
-     * An existing registration is deleted from ClickUp first, so this also works for changing the URL.
+     * Registers the webhook for the configured Workspace at {@code APP_BASE_URL/clickup/webhook}, subscribed to
+     * exactly the events the enabled workflows handle. An existing registration is deleted from ClickUp first, so
+     * this also works for changing the URL or the event list (re-register after enabling/disabling a workflow).
      */
     public WebhookRegistration register() {
         String workspaceId = clickUpProperties.workspaceId();
         String endpoint = stripTrailingSlash(appProperties.baseUrl()) + WEBHOOK_PATH;
-        List<String> events = clickUpProperties.webhookEvents();
+        List<String> events = subscribedEvents();
+        if (events.isEmpty()) {
+            throw new NoWorkflowsEnabledException();
+        }
         ClickUpClient client = clientFactory.forWorkspace(workspaceId);
 
         store.findByWorkspace(workspaceId).ifPresent(existing -> deleteFromClickUp(client, existing.webhookId()));
@@ -67,6 +75,13 @@ public class WebhookRegistrationService {
         store.delete(workspaceId);
     }
 
+    /**
+     * Union of the event types of all enabled workflows.
+     */
+    public List<String> subscribedEvents() {
+        return handlers.stream().flatMap(h -> h.eventTypes().stream()).distinct().sorted().toList();
+    }
+
     private static void deleteFromClickUp(ClickUpClient client, String webhookId) {
         try {
             client.deleteWebhook(webhookId);
@@ -81,6 +96,13 @@ public class WebhookRegistrationService {
 
     private static String stripTrailingSlash(String url) {
         return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
+    }
+
+    public static class NoWorkflowsEnabledException extends RuntimeException {
+
+        public NoWorkflowsEnabledException() {
+            super("No workflow is enabled, so there are no events to subscribe to");
+        }
     }
 
     public static class NoWebhookException extends RuntimeException {

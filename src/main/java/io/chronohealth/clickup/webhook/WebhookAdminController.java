@@ -52,6 +52,11 @@ public class WebhookAdminController {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
     }
 
+    @ExceptionHandler(WebhookRegistrationService.NoWorkflowsEnabledException.class)
+    public ResponseEntity<Map<String, String>> noWorkflows(RuntimeException e) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(Map.of("error", e.getMessage()));
+    }
+
     @ExceptionHandler(WebhookRegistrationService.NoWebhookException.class)
     public ResponseEntity<Map<String, String>> none(RuntimeException e) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of("error", e.getMessage()));

@@ -90,8 +90,9 @@ class CopyParentFieldsWorkflowTest {
     private CopyParentFieldsWorkflow workflow(String mappings, String parentType) {
         ClickUpProperties properties = new ClickUpProperties("id", "secret", "https://x/cb", "ws", "https://api",
                 "https://auth", Duration.ofSeconds(1), Duration.ofSeconds(1),
-                new ClickUpProperties.RateLimit(0, Duration.ofSeconds(1)), List.of("taskCreated"),
-                new ClickUpProperties.Workflows(new ClickUpProperties.CopyParentFields(true, mappings, parentType)));
+                new ClickUpProperties.RateLimit(0, Duration.ofSeconds(1)),
+                new ClickUpProperties.Workflows(new ClickUpProperties.CopyParentFields(true, mappings, parentType),
+                        new ClickUpProperties.TagSubtasks(false, List.of())));
         return new CopyParentFieldsWorkflow(factory, new CustomFieldValueMapper(), properties, MAPPER);
     }
 
@@ -100,7 +101,8 @@ class CopyParentFieldsWorkflowTest {
     }
 
     private static Task task(String id, String parent, Long customItemId, CustomField... fields) {
-        return new Task(id, "name", parent, customItemId, null, new IdRef("list"), List.of(), List.of(fields));
+        return new Task(id, "name", parent, customItemId, null, null, new IdRef("list"), List.of(), List.of(),
+                List.of(fields), List.of());
     }
 
     private static CustomField field(String id, String value) {

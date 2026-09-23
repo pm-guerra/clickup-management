@@ -10,10 +10,12 @@ public record NewSubtask(
         List<Long> assignees,
         String status,
         Integer priority,
-        Long dueDate
+        Long dueDate,
+        List<String> tags,
+        List<CustomFieldValue> customFields
 ) {
 
     public static NewSubtask named(String name) {
-        return new NewSubtask(name, null, null, null, null, null);
+        return new NewSubtask(name, null, null, null, null, null, null, null);
     }
 }

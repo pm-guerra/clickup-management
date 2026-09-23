@@ -1,6 +1,7 @@
 package io.chronohealth.clickup.client;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.chronohealth.clickup.client.dto.CustomFieldValue;
 import io.chronohealth.clickup.client.dto.NewSubtask;
 import io.chronohealth.clickup.client.dto.Task;
 import io.chronohealth.clickup.client.dto.TaskUpdate;
@@ -38,7 +39,15 @@ public class ClickUpClient {
     }
 
     public Task getTask(String taskId) {
-        return http.execute("getTask", () -> api().get().uri("/task/{taskId}", taskId)
+        return getTask(taskId, false);
+    }
+
+    /**
+     * @param includeSubtasks also return the task's direct subtasks in {@link Task#subtasks()}
+     */
+    public Task getTask(String taskId, boolean includeSubtasks) {
+        return http.execute("getTask", () -> api().get()
+                .uri(b -> b.path("/task/{taskId}").queryParam("include_subtasks", includeSubtasks).build(taskId))
                 .retrieve().body(Task.class));
     }
 
@@ -46,10 +55,17 @@ public class ClickUpClient {
      * Creates a subtask in the same list as its parent.
      */
     public Task createSubtask(String parentTaskId, NewSubtask subtask) {
-        String listId = getTask(parentTaskId).list().id();
+        return createSubtask(getTask(parentTaskId), subtask);
+    }
+
+    /**
+     * Creates a subtask in the same list as {@code parent}, which the caller already fetched.
+     */
+    public Task createSubtask(Task parent, NewSubtask subtask) {
         CreateTaskBody body = new CreateTaskBody(subtask.name(), subtask.description(), subtask.assignees(),
-                subtask.status(), subtask.priority(), subtask.dueDate(), parentTaskId);
-        return http.execute("createSubtask", () -> api().post().uri("/list/{listId}/task", listId)
+                subtask.status(), subtask.priority(), subtask.dueDate(), subtask.tags(), subtask.customFields(),
+                parent.id());
+        return http.execute("createSubtask", () -> api().post().uri("/list/{listId}/task", parent.list().id())
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(body)
                 .retrieve().body(Task.class));
@@ -120,6 +136,7 @@ public class ClickUpClient {
 
     @JsonInclude(JsonInclude.Include.NON_NULL)
     private record CreateTaskBody(String name, String description, List<Long> assignees, String status,
-                                  Integer priority, Long dueDate, String parent) {
+                                  Integer priority, Long dueDate, List<String> tags,
+                                  List<CustomFieldValue> customFields, String parent) {
     }
 }

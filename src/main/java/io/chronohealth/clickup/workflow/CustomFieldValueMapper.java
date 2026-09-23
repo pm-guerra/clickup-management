@@ -1,6 +1,7 @@
 package io.chronohealth.clickup.workflow;
 
 import io.chronohealth.clickup.client.dto.CustomField;
+import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -25,9 +26,22 @@ public class CustomFieldValueMapper {
             case "drop_down" -> dropDownOptionId(field);
             // GET returns user objects; SET wants {"add": [ids]}.
             case "users" -> Optional.of(Map.of("add", ids(value)));
+            // GET returns "true"/"false" as text; SET wants a boolean.
+            case "checkbox" -> Optional.of(value.asBoolean());
             // Relationship fields need add/rem semantics against existing links; not supported yet.
             case "tasks", "list_relationship" -> Optional.empty();
             default -> Optional.of(value);
+        };
+    }
+
+    /**
+     * Converts a configured value (always text) to what "Set Custom Field Value" expects for {@code field}'s type.
+     */
+    public Object fromConfig(CustomField field, String value) {
+        return switch (field.type() == null ? "" : field.type()) {
+            case "checkbox" -> Boolean.parseBoolean(value.trim());
+            case "number", "currency", "emoji", "manual_progress" -> new BigDecimal(value.trim());
+            default -> value;
         };
     }
 
