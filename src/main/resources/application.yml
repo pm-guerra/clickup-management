@@ -1,0 +1,62 @@
+spring:
+  application:
+    name: clickup-management
+  config:
+    # Local convenience: load secrets from a git-ignored .env file if present.
+    # Real environment variables (e.g. on Railway) take precedence.
+    import: optional:file:.env[.properties]
+  threads:
+    virtual:
+      enabled: true
+  jackson:
+    # ClickUp's API is snake_case; lets DTO records map without annotations.
+    property-naming-strategy: SNAKE_CASE
+  datasource:
+    # Local default: H2 file database in ./data. Deployed environments use the "postgres" profile.
+    url: jdbc:h2:file:./data/clickup;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;AUTO_SERVER=TRUE
+    username: sa
+    password:
+  flyway:
+    enabled: true
+
+server:
+  port: ${PORT:8080}
+  forward-headers-strategy: framework
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      probes:
+        enabled: true
+
+app:
+  base-url: ${APP_BASE_URL:http://localhost:8080}
+  admin-api-key: ${ADMIN_API_KEY}
+  token-encryption-key: ${TOKEN_ENCRYPTION_KEY}
+
+clickup:
+  client-id: ${CLICKUP_CLIENT_ID}
+  client-secret: ${CLICKUP_CLIENT_SECRET}
+  redirect-uri: ${CLICKUP_REDIRECT_URI:${app.base-url}/clickup/oauth/callback}
+  workspace-id: ${CLICKUP_WORKSPACE_ID}
+  api-base-url: https://api.clickup.com/api/v2
+  authorize-url: https://app.clickup.com/api
+  connect-timeout: 5s
+  read-timeout: 30s
+  rate-limit:
+    max-retries: 3
+    max-wait: 60s
+  # Only the events the workflows need. Avoid "*".
+  webhook-events:
+    - taskCreated
+  workflows:
+    copy-parent-fields:
+      enabled: true
+      # JSON object {"childFieldId": "parentFieldId"}; same id on both sides for now.
+      field-mappings: ${CLICKUP_CUSTOM_FIELD_MAPPINGS:{}}
+      # Optional: only copy when the parent's custom task type id matches (e.g. the "Bug" type).
+      parent-custom-item-id: ${CLICKUP_BUG_CUSTOM_ITEM_ID:}

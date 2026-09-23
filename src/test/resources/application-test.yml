@@ -1,0 +1,20 @@
+spring:
+  config:
+    import: ""
+  datasource:
+    url: jdbc:h2:mem:test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
+
+app:
+  base-url: https://example.test
+  admin-api-key: test-admin-key
+  token-encryption-key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+
+clickup:
+  client-id: test-client
+  client-secret: test-secret
+  workspace-id: "9001"
+  workflows:
+    copy-parent-fields:
+      field-mappings: '{"field-a":"field-a"}'
