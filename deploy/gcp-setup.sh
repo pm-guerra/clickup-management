@@ -47,7 +47,7 @@ done
 has_versions clickup-client-secret \
   || printf '%s' "$CLICKUP_CLIENT_SECRET" | gcloud secrets versions add clickup-client-secret --project "$PROJECT" --data-file=-
 has_versions clickup-admin-api-key \
-  || openssl rand -hex 24 | tr -d '\n' | gcloud secrets versions add clickup-admin-api-key --project "$PROJECT" --data-file=-
+  || openssl rand -hex 24 | tr -d '\r\n' | gcloud secrets versions add clickup-admin-api-key --project "$PROJECT" --data-file=-
 
 echo "==> Runtime service account permissions"
 for s in clickup-client-secret clickup-admin-api-key "$TOKEN_SECRET" "$WEBHOOK_SECRET"; do

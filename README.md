@@ -88,6 +88,7 @@ Service URL: https://clickup-management-182906449104.europe-west1.run.app
 - **Config:** non-secret env vars in [deploy/cloudrun-env.yaml](deploy/cloudrun-env.yaml); secrets in Secret Manager
   (`clickup-client-secret`, `clickup-admin-api-key`, `clickup-oauth-token-<ws>`, `clickup-webhook-<ws>`).
 - **Admin key:** `gcloud secrets versions access latest --secret clickup-admin-api-key --project octo-agents`
+- Admin POSTs need a body (Google's front end rejects POST without `Content-Length`): `curl -X POST -d '' -H "X-Admin-Key: $KEY" ...`
 
 After the first deploy: add `<service URL>/clickup/oauth/callback` as a redirect URL in the ClickUp app, open
 `<service URL>/clickup/oauth/start`, then `POST <service URL>/admin/clickup/webhook` with the admin key.
