@@ -90,3 +90,25 @@ clickup:
           copy-fields:
             - Pre Go Live
           copy-priority: true
+        - tag: web
+          title-prefix: "Web | "
+          status: to do
+          tags: [web]
+          set-fields:
+            - field: maintenance
+              value: "true"
+              parent-types: [Bug, Change]
+          copy-fields:
+            - Pre Go Live
+          copy-priority: true
+        - tag: mobile
+          title-prefix: "Mobile | "
+          status: to do
+          tags: [mobile]
+          set-fields:
+            - field: maintenance
+              value: "true"
+              parent-types: [Bug, Change]
+          copy-fields:
+            - Pre Go Live
+          copy-priority: true

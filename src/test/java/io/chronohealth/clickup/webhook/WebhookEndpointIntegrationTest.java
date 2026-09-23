@@ -1,6 +1,7 @@
 package io.chronohealth.clickup.webhook;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
@@ -12,6 +13,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import io.chronohealth.clickup.client.ClickUpApiException;
+import io.chronohealth.clickup.config.ClickUpProperties;
 import io.chronohealth.clickup.event.EventRepository;
 import io.chronohealth.clickup.event.EventRetryJob;
 import io.chronohealth.clickup.event.EventStatus;
@@ -56,6 +58,10 @@ class WebhookEndpointIntegrationTest {
     private EventRetryJob retryJob;
     @Autowired
     private JdbcClient jdbc;
+    @Autowired
+    private ClickUpProperties clickUpProperties;
+    @Autowired
+    private WebhookRegistrationService registrationService;
     @MockitoBean
     private EventDispatcher dispatcher;
 
@@ -126,6 +132,14 @@ class WebhookEndpointIntegrationTest {
 
         verify(dispatcher, never()).dispatch(any());
         assertThat(events.findByStatus(EventStatus.PENDING, 10)).isEmpty();
+    }
+
+    @Test
+    void configuredTagRulesAreLoadedAndSubscribed() {
+        assertThat(clickUpProperties.workflows().tagSubtasks().rulesOrEmpty())
+                .extracting(ClickUpProperties.TagSubtaskRule::tag, ClickUpProperties.TagSubtaskRule::titlePrefix)
+                .containsExactly(tuple("backend", "Backend | "), tuple("web", "Web | "), tuple("mobile", "Mobile | "));
+        assertThat(registrationService.subscribedEvents()).contains("taskTagUpdated");
     }
 
     @Test

@@ -128,6 +128,26 @@ class TagSubtaskWorkflowTest {
     }
 
     @Test
+    void createsOneSubtaskPerAddedTagAndSkipsTagsThatAlreadyHaveOne() {
+        ClickUpProperties.TagSubtaskRule web = new ClickUpProperties.TagSubtaskRule("web", "Web | ", "to do",
+                List.of("web"), List.of(), List.of(), true);
+        ClickUpProperties.TagSubtaskRule mobile = new ClickUpProperties.TagSubtaskRule("mobile", "Mobile | ", "to do",
+                List.of("mobile"), List.of(), List.of(), true);
+        TagSubtaskWorkflow multi = workflow(true, List.of(BACKEND, web, mobile));
+        Task existingMobile = task("s1", "Mobile | Fix login", null, List.of(), List.of(new Tag("mobile")));
+        Task parent = task("p1", "Fix login", null, List.of(existingMobile));
+        when(client.getTask("p1", true)).thenReturn(parent);
+
+        multi.handle(event("p1", new HistoryItem("h", "1", null, "tag", null, null, null,
+                MAPPER.readTree("[{\"name\":\"web\"},{\"name\":\"mobile\"}]"))));
+
+        ArgumentCaptor<NewSubtask> captor = ArgumentCaptor.forClass(NewSubtask.class);
+        verify(client).createSubtask(eq(parent), captor.capture());
+        assertThat(captor.getValue().name()).isEqualTo("Web | Fix login");
+        assertThat(captor.getValue().tags()).containsExactly("web");
+    }
+
+    @Test
     void doesNotChainOnGeneratedSubtasks() {
         when(client.getTask("s1", true)).thenReturn(task("s1", "Backend | Fix login", null, List.of()));
 
@@ -164,11 +184,15 @@ class TagSubtaskWorkflowTest {
     }
 
     private TagSubtaskWorkflow workflow(boolean enabled) {
+        return workflow(enabled, List.of(BACKEND));
+    }
+
+    private TagSubtaskWorkflow workflow(boolean enabled, List<ClickUpProperties.TagSubtaskRule> rules) {
         ClickUpProperties properties = new ClickUpProperties("id", "secret", "https://x/cb", "ws", "https://api",
                 "https://auth", Duration.ofSeconds(1), Duration.ofSeconds(1),
                 new ClickUpProperties.RateLimit(0, Duration.ofSeconds(1)),
                 new ClickUpProperties.Workflows(new ClickUpProperties.CopyParentFields(false, "{}", ""),
-                        new ClickUpProperties.TagSubtasks(enabled, List.of(BACKEND))));
+                        new ClickUpProperties.TagSubtasks(enabled, rules)));
         return new TagSubtaskWorkflow(factory, new CustomFieldValueMapper(), new TaskTypeResolver(), properties);
     }
 

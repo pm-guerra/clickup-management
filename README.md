@@ -49,18 +49,27 @@ Admin (all need `X-Admin-Key`): `GET /admin/events?status=FAILED|DEAD|...`, `GET
 ### Workflow: tag -> subtask (`TagSubtaskWorkflow`)
 
 On `taskTagUpdated`, for each tag *added* that matches a rule in `clickup.workflows.tag-subtasks.rules`, creates a
-subtask under the tagged task (any task type) in one API call. Current rule, `backend`:
+subtask under the tagged task (any task type) in one API call. Current rules, all identical except tag and title:
 
-- title `Backend | <parent name>`, status `to do`, tag `backend`, default task type
+| Tag       | Subtask title             | Subtask tag |
+|-----------|---------------------------|-------------|
+| `backend` | `Backend \| <parent name>` | `backend`   |
+| `web`     | `Web \| <parent name>`     | `web`       |
+| `mobile`  | `Mobile \| <parent name>`  | `mobile`    |
+
+Each subtask:
+- status `to do`, default task type
 - `Pre Go Live` and priority inherited from the parent (whatever values it has, including none)
 - `maintenance` = true **only if the parent's task type is Bug or Change**; otherwise left unset. Type names are
   resolved from the workspace's custom task types (cached; reloaded when an unknown type id appears)
 
 Guardrails:
 - removing a tag does nothing;
-- if the parent already has a subtask tagged `backend` (or titled `Backend | <name>`), nothing is created, so
-  re-adding the tag and retries don't duplicate it;
-- tasks whose name already starts with `Backend | ` are skipped, so the generated subtask never spawns another.
+- if the parent already has a subtask carrying the rule's tag (e.g. `web`), or titled with the rule's title
+  (e.g. `Web | <name>`), nothing is created for that rule, so re-adding the tag and retries don't duplicate it;
+- tasks whose name already starts with the rule's prefix (e.g. `Web | `) are skipped, so a generated subtask never
+  spawns another for the same tag;
+- adding several tags at once (e.g. `web` and `mobile`) creates one subtask per tag.
 
 Custom fields are matched **by name** on the parent's list (they exist on the Product list); a field that isn't on
 the list is skipped with a warning. Add more rules (e.g. `frontend`) in `application.yml`.
