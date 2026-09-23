@@ -2,28 +2,31 @@ package io.chronohealth.clickup.webhook;
 
 import java.time.Clock;
 import java.time.Duration;
-import java.time.OffsetDateTime;
-import org.springframework.dao.DuplicateKeyException;
-import org.springframework.jdbc.core.simple.JdbcClient;
-import org.springframework.stereotype.Repository;
+import java.time.Instant;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import org.springframework.stereotype.Component;
 
 /**
- * Idempotency records. An event is "claimed" before processing (insert on its primary key), marked completed
- * afterwards, and released if processing fails so ClickUp's retry can process it again.
+ * In-memory idempotency records. An event is "claimed" before processing, marked completed afterwards, and
+ * released if processing fails so ClickUp's retry can process it again.
+ * <p>
+ * Being in memory, this only deduplicates within one running instance, which is why the service is deployed
+ * with a single instance. ClickUp's duplicate deliveries arrive within minutes, well inside {@link #RETENTION}.
  */
-@Repository
+@Component
 public class ProcessedEventStore {
 
+    private static final Duration RETENTION = Duration.ofHours(24);
     /**
-     * A claim that was never completed or released (e.g. the process died) can be taken over after this.
+     * A claim that was never completed or released (e.g. a hung request) can be taken over after this.
      */
     private static final Duration STALE_CLAIM = Duration.ofMinutes(5);
 
-    private final JdbcClient jdbc;
+    private final Map<String, Entry> entries = new ConcurrentHashMap<>();
     private final Clock clock;
 
-    public ProcessedEventStore(JdbcClient jdbc, Clock clock) {
-        this.jdbc = jdbc;
+    public ProcessedEventStore(Clock clock) {
         this.clock = clock;
     }
 
@@ -31,42 +34,32 @@ public class ProcessedEventStore {
      * @return true if the caller now owns processing of this event, false if it was already processed or is in progress
      */
     public boolean tryClaim(ClickUpEvent event) {
-        OffsetDateTime now = OffsetDateTime.now(clock);
-        try {
-            jdbc.sql("""
-                            insert into processed_event (idempotency_key, webhook_id, event, task_id, received_at)
-                            values (:key, :webhookId, :event, :taskId, :now)
-                            """)
-                    .param("key", event.idempotencyKey())
-                    .param("webhookId", event.webhookId())
-                    .param("event", event.type())
-                    .param("taskId", event.taskId())
-                    .param("now", now)
-                    .update();
-            return true;
-        } catch (DuplicateKeyException _) {
-            int reclaimed = jdbc.sql("""
-                            update processed_event set received_at = :now
-                             where idempotency_key = :key and completed_at is null and received_at < :cutoff
-                            """)
-                    .param("now", now)
-                    .param("key", event.idempotencyKey())
-                    .param("cutoff", now.minus(STALE_CLAIM))
-                    .update();
-            return reclaimed == 1;
-        }
+        Instant now = clock.instant();
+        evictExpired(now);
+        boolean[] claimed = {false};
+        entries.compute(event.idempotencyKey(), (_, existing) -> {
+            if (existing == null || (!existing.completed() && existing.claimedAt().isBefore(now.minus(STALE_CLAIM)))) {
+                claimed[0] = true;
+                return new Entry(now, false);
+            }
+            return existing;
+        });
+        return claimed[0];
     }
 
     public void markCompleted(ClickUpEvent event) {
-        jdbc.sql("update processed_event set completed_at = :now where idempotency_key = :key")
-                .param("now", OffsetDateTime.now(clock))
-                .param("key", event.idempotencyKey())
-                .update();
+        entries.computeIfPresent(event.idempotencyKey(), (_, e) -> new Entry(e.claimedAt(), true));
     }
 
     public void release(ClickUpEvent event) {
-        jdbc.sql("delete from processed_event where idempotency_key = :key and completed_at is null")
-                .param("key", event.idempotencyKey())
-                .update();
+        entries.computeIfPresent(event.idempotencyKey(), (_, e) -> e.completed() ? e : null);
+    }
+
+    private void evictExpired(Instant now) {
+        Instant cutoff = now.minus(RETENTION);
+        entries.values().removeIf(e -> e.claimedAt().isBefore(cutoff));
+    }
+
+    private record Entry(Instant claimedAt, boolean completed) {
     }
 }

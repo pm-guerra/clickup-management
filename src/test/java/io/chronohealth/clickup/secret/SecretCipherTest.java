@@ -1,15 +1,13 @@
-package io.chronohealth.clickup.security;
+package io.chronohealth.clickup.secret;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import io.chronohealth.clickup.config.AppProperties;
 import org.junit.jupiter.api.Test;
 
 class SecretCipherTest {
 
-    private final SecretCipher cipher = new SecretCipher(
-            new AppProperties("http://x", "k", "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="));
+    private final SecretCipher cipher = new SecretCipher("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=");
 
     @Test
     void roundTrips() {
@@ -26,7 +24,7 @@ class SecretCipherTest {
 
     @Test
     void rejectsWrongKeyLength() {
-        assertThatThrownBy(() -> new SecretCipher(new AppProperties("http://x", "k", "AAAA")))
+        assertThatThrownBy(() -> new SecretCipher("AAAA"))
                 .isInstanceOf(IllegalStateException.class);
     }
 }

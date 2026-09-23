@@ -1,6 +1,5 @@
-package io.chronohealth.clickup.security;
+package io.chronohealth.clickup.secret;
 
-import io.chronohealth.clickup.config.AppProperties;
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
@@ -10,13 +9,10 @@ import javax.crypto.Cipher;
 import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
-import org.springframework.stereotype.Component;
 
 /**
- * AES-256-GCM encryption for secrets stored at rest (OAuth tokens, webhook secrets).
- * Output format: base64(iv || ciphertext+tag).
+ * AES-256-GCM encryption for secrets written to local disk. Output format: base64(iv || ciphertext+tag).
  */
-@Component
 public class SecretCipher {
 
     private static final String TRANSFORMATION = "AES/GCM/NoPadding";
@@ -26,8 +22,8 @@ public class SecretCipher {
     private final SecretKey key;
     private final SecureRandom random = new SecureRandom();
 
-    public SecretCipher(AppProperties properties) {
-        byte[] keyBytes = Base64.getDecoder().decode(properties.tokenEncryptionKey());
+    public SecretCipher(String base64Key) {
+        byte[] keyBytes = base64Key == null ? new byte[0] : Base64.getDecoder().decode(base64Key);
         if (keyBytes.length != 32) {
             throw new IllegalStateException("TOKEN_ENCRYPTION_KEY must be 32 bytes, base64-encoded");
         }

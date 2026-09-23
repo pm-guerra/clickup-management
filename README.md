@@ -9,7 +9,7 @@ Java 25 + Spring Boot 4 service that integrates with ClickUp via OAuth and webho
 POST /clickup/webhook
   -> signature verification (HMAC-SHA256 of the raw body with the webhook secret, X-Signature header)
   -> normalize payload into a ClickUpEvent
-  -> idempotency check (webhook_id:history_item_id, persisted in processed_event)
+  -> idempotency check (webhook_id:history_item_id, kept in memory)
   -> EventDispatcher -> EventHandler (business workflow)
   -> ClickUpClient (all ClickUp HTTP goes through here)
 ```
@@ -17,7 +17,8 @@ POST /clickup/webhook
 | Package    | Responsibility                                                                       |
 |------------|--------------------------------------------------------------------------------------|
 | `oauth`    | `/clickup/oauth/start` + `/callback`, one-time `state` values                         |
-| `token`    | `AccessTokenStore` abstraction; JDBC impl encrypts tokens with AES-GCM               |
+| `secret`   | `SecretStore`: GCP Secret Manager when deployed, AES-GCM encrypted files locally     |
+| `token`    | `AccessTokenStore` abstraction over `SecretStore`                                    |
 | `client`   | `ClickUpClient` (tasks, custom fields, webhooks), timeouts, error mapping, 429 retry |
 | `webhook`  | Receiver, signature check, normalization, idempotency, dispatch, webhook admin API   |
 | `workflow` | Business rules (`EventHandler` implementations)                                      |
@@ -43,21 +44,21 @@ git-ignored `.env` file at the repo root; it is loaded automatically.
 | `CLICKUP_WORKSPACE_ID`          | The number after `app.clickup.com/` in your ClickUp URL               |
 | `APP_BASE_URL`                  | Public URL of this service; the webhook endpoint is derived from it   |
 | `CLICKUP_REDIRECT_URI`          | Defaults to `${APP_BASE_URL}/clickup/oauth/callback`                  |
-| `TOKEN_ENCRYPTION_KEY`          | `openssl rand -base64 32`; encrypts tokens and webhook secrets at rest |
+| `TOKEN_ENCRYPTION_KEY`          | Local only: `openssl rand -base64 32`; encrypts `./data/secrets`      |
+| `SECRET_STORE` / `GCP_PROJECT_ID` | `local` (default) or `gcp` (Secret Manager in that project)         |
 | `ADMIN_API_KEY`                 | Sent as `X-Admin-Key` to `/admin/**`                                  |
 | `CLICKUP_CUSTOM_FIELD_MAPPINGS` | JSON `{"childFieldId":"parentFieldId"}`                               |
 | `CLICKUP_BUG_CUSTOM_ITEM_ID`    | Optional: only treat parents of this custom task type as Bugs         |
-| `PGHOST` `PGPORT` `PGDATABASE` `PGUSER` `PGPASSWORD` | Postgres connection (`postgres` profile only)    |
 
 ## Running locally
 
-By default the app uses an H2 file database in `./data`, so no database setup is needed:
+There is no database. The only durable state is the OAuth token and the webhook secret; locally they're
+encrypted files in `./data/secrets`, on Cloud Run they're Secret Manager secrets. OAuth `state` and webhook
+de-duplication are in memory, which is why Cloud Run runs exactly one instance.
 
 ```bash
 ./mvnw spring-boot:run
 ```
-
-Deployed environments set `SPRING_PROFILES_ACTIVE=postgres` and the `PG*` variables.
 
 1. Register the redirect URL in the ClickUp OAuth app (e.g. `http://localhost:8080/clickup/oauth/callback`).
 2. Open http://localhost:8080/clickup/oauth/start in a browser and authorize the workspace.
@@ -65,10 +66,10 @@ Deployed environments set `SPRING_PROFILES_ACTIVE=postgres` and the `PG*` variab
    `APP_BASE_URL` to that URL, restart, then register the webhook:
 
 ```bash
-curl -X POST -H "X-Admin-Key: $ADMIN_API_KEY" http://localhost:8080/admin/clickup/webhooks
+curl -X POST -H "X-Admin-Key: $ADMIN_API_KEY" http://localhost:8080/admin/clickup/webhook
 ```
 
-Other admin endpoints: `GET /admin/clickup/webhooks`, `DELETE /admin/clickup/webhooks/{id}`.
+`POST` (re-)registers, replacing any previous webhook. Also: `GET` and `DELETE` on `/admin/clickup/webhook`.
 
 ## Tests
 
@@ -76,10 +77,20 @@ Other admin endpoints: `GET /admin/clickup/webhooks`, `DELETE /admin/clickup/web
 ./mvnw test
 ```
 
-## Deployment
+## Deployment (Cloud Run, project `octo-agents`)
 
-A `Dockerfile` is included. The target is GCP (same setup as `octo-agents`: GitHub Actions + Workload Identity
-Federation); not wired up yet. The app reads `PORT`, exposes `/actuator/health/liveness` and `/readiness`.
+Service URL: https://clickup-management-182906449104.europe-west1.run.app
+
+- **One-time setup:** `set -a; source .env; set +a; bash deploy/gcp-setup.sh`. This enables the APIs, creates
+  the runtime/deployer service accounts and secrets, and lets this repo deploy via Workload Identity Federation.
+- **Deploy:** push to `master` (or run the *Deploy* workflow). GitHub Actions tests, builds the Dockerfile,
+  pushes to Artifact Registry and deploys to Cloud Run.
+- **Config:** non-secret env vars in [deploy/cloudrun-env.yaml](deploy/cloudrun-env.yaml); secrets in Secret Manager
+  (`clickup-client-secret`, `clickup-admin-api-key`, `clickup-oauth-token-<ws>`, `clickup-webhook-<ws>`).
+- **Admin key:** `gcloud secrets versions access latest --secret clickup-admin-api-key --project octo-agents`
+
+After the first deploy: add `<service URL>/clickup/oauth/callback` as a redirect URL in the ClickUp app, open
+`<service URL>/clickup/oauth/start`, then `POST <service URL>/admin/clickup/webhook` with the admin key.
 
 ## Compliance
 

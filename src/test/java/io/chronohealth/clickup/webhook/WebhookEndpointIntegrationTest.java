@@ -10,14 +10,13 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import io.chronohealth.clickup.security.AdminApiKeyFilter;
 import java.nio.charset.StandardCharsets;
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -39,11 +38,9 @@ class WebhookEndpointIntegrationTest {
     @Autowired
     private AdminApiKeyFilter adminApiKeyFilter;
     @Autowired
-    private WebhookRegistrationRepository registrations;
+    private WebhookRegistrationStore registrations;
     @Autowired
     private WebhookSignatureVerifier signer;
-    @Autowired
-    private JdbcClient jdbc;
     @MockitoBean
     private EventDispatcher dispatcher;
 
@@ -52,10 +49,8 @@ class WebhookEndpointIntegrationTest {
     @BeforeEach
     void setUp() {
         mvc = MockMvcBuilders.webAppContextSetup(context).addFilters(adminApiKeyFilter).build();
-        jdbc.sql("delete from processed_event").update();
-        jdbc.sql("delete from webhook_registration").update();
         registrations.save(new WebhookRegistration("wh-1", "9001", "https://example.test/clickup/webhook",
-                List.of("taskCreated"), SECRET, OffsetDateTime.now()));
+                List.of("taskCreated"), SECRET, Instant.now()));
     }
 
     @Test
@@ -89,8 +84,10 @@ class WebhookEndpointIntegrationTest {
 
     @Test
     void adminEndpointsRequireApiKey() throws Exception {
-        mvc.perform(get("/admin/clickup/webhooks")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/admin/clickup/webhooks").header("X-Admin-Key", "test-admin-key"))
+        mvc.perform(get("/admin/clickup/webhook")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/admin/clickup/webhook").header("X-Admin-Key", "test-admin-key"))
                 .andExpect(status().isOk());
+        mvc.perform(get("/admin/clickup/webhook").header("X-Admin-Key", "wrong"))
+                .andExpect(status().isUnauthorized());
     }
 }

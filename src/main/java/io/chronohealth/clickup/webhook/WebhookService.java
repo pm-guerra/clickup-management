@@ -18,13 +18,13 @@ public class WebhookService {
     private static final Logger log = LoggerFactory.getLogger(WebhookService.class);
 
     private final JsonMapper jsonMapper;
-    private final WebhookRegistrationRepository registrations;
+    private final WebhookRegistrationStore registrations;
     private final WebhookSignatureVerifier signatureVerifier;
     private final EventNormalizer normalizer;
     private final ProcessedEventStore processedEvents;
     private final EventDispatcher dispatcher;
 
-    public WebhookService(JsonMapper jsonMapper, WebhookRegistrationRepository registrations,
+    public WebhookService(JsonMapper jsonMapper, WebhookRegistrationStore registrations,
                           WebhookSignatureVerifier signatureVerifier, EventNormalizer normalizer,
                           ProcessedEventStore processedEvents, EventDispatcher dispatcher) {
         this.jsonMapper = jsonMapper;
@@ -49,7 +49,7 @@ public class WebhookService {
         if (webhookId == null) {
             return Outcome.MALFORMED;
         }
-        Optional<WebhookRegistration> registration = registrations.findById(webhookId);
+        Optional<WebhookRegistration> registration = registrations.findByWebhookId(webhookId);
         if (registration.isEmpty()) {
             log.warn("Rejected webhook delivery for unknown webhook {}", webhookId);
             return Outcome.REJECTED;

@@ -3,7 +3,7 @@ spring:
     name: clickup-management
   config:
     # Local convenience: load secrets from a git-ignored .env file if present.
-    # Real environment variables (e.g. on Railway) take precedence.
+    # Real environment variables (e.g. on Cloud Run) take precedence.
     import: optional:file:.env[.properties]
   threads:
     virtual:
@@ -11,13 +11,6 @@ spring:
   jackson:
     # ClickUp's API is snake_case; lets DTO records map without annotations.
     property-naming-strategy: SNAKE_CASE
-  datasource:
-    # Local default: H2 file database in ./data. Deployed environments use the "postgres" profile.
-    url: jdbc:h2:file:./data/clickup;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;AUTO_SERVER=TRUE
-    username: sa
-    password:
-  flyway:
-    enabled: true
 
 server:
   port: ${PORT:8080}
@@ -36,7 +29,12 @@ management:
 app:
   base-url: ${APP_BASE_URL:http://localhost:8080}
   admin-api-key: ${ADMIN_API_KEY}
-  token-encryption-key: ${TOKEN_ENCRYPTION_KEY}
+  # Where the OAuth token and webhook secret are kept: "local" (encrypted files) or "gcp" (Secret Manager).
+  secret-store:
+    type: ${SECRET_STORE:local}
+    local-path: ${LOCAL_SECRETS_PATH:./data/secrets}
+    local-encryption-key: ${TOKEN_ENCRYPTION_KEY:}
+    gcp-project-id: ${GCP_PROJECT_ID:}
 
 clickup:
   client-id: ${CLICKUP_CLIENT_ID}

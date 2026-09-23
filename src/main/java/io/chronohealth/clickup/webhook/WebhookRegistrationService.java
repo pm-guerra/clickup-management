@@ -1,12 +1,14 @@
 package io.chronohealth.clickup.webhook;
 
+import io.chronohealth.clickup.client.ClickUpApiException;
+import io.chronohealth.clickup.client.ClickUpClient;
 import io.chronohealth.clickup.client.ClickUpClientFactory;
 import io.chronohealth.clickup.client.dto.Webhook;
 import io.chronohealth.clickup.config.AppProperties;
 import io.chronohealth.clickup.config.ClickUpProperties;
 import java.time.Clock;
-import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -19,56 +21,72 @@ public class WebhookRegistrationService {
     private static final Logger log = LoggerFactory.getLogger(WebhookRegistrationService.class);
 
     private final ClickUpClientFactory clientFactory;
-    private final WebhookRegistrationRepository repository;
+    private final WebhookRegistrationStore store;
     private final AppProperties appProperties;
     private final ClickUpProperties clickUpProperties;
     private final Clock clock;
 
-    public WebhookRegistrationService(ClickUpClientFactory clientFactory, WebhookRegistrationRepository repository,
+    public WebhookRegistrationService(ClickUpClientFactory clientFactory, WebhookRegistrationStore store,
                                       AppProperties appProperties, ClickUpProperties clickUpProperties, Clock clock) {
         this.clientFactory = clientFactory;
-        this.repository = repository;
+        this.store = store;
         this.appProperties = appProperties;
         this.clickUpProperties = clickUpProperties;
         this.clock = clock;
     }
 
     /**
-     * Registers a webhook for the configured Workspace pointing at {@code APP_BASE_URL/clickup/webhook}.
+     * Registers the webhook for the configured Workspace at {@code APP_BASE_URL/clickup/webhook}.
+     * An existing registration is deleted from ClickUp first, so this also works for changing the URL.
      */
     public WebhookRegistration register() {
         String workspaceId = clickUpProperties.workspaceId();
         String endpoint = stripTrailingSlash(appProperties.baseUrl()) + WEBHOOK_PATH;
         List<String> events = clickUpProperties.webhookEvents();
+        ClickUpClient client = clientFactory.forWorkspace(workspaceId);
 
-        Webhook webhook = clientFactory.forWorkspace(workspaceId).createWebhook(workspaceId, endpoint, events);
+        store.findByWorkspace(workspaceId).ifPresent(existing -> deleteFromClickUp(client, existing.webhookId()));
+
+        Webhook webhook = client.createWebhook(workspaceId, endpoint, events);
         WebhookRegistration registration = new WebhookRegistration(
-                webhook.id(), workspaceId, endpoint, events, webhook.secret(), OffsetDateTime.now(clock));
-        repository.save(registration);
+                webhook.id(), workspaceId, endpoint, events, webhook.secret(), clock.instant());
+        store.save(registration);
         log.info("Registered ClickUp webhook {} for workspace {} with events {}", webhook.id(), workspaceId, events);
         return registration;
     }
 
-    public List<WebhookRegistration> list() {
-        return repository.findByWorkspace(clickUpProperties.workspaceId());
+    public Optional<WebhookRegistration> current() {
+        return store.findByWorkspace(clickUpProperties.workspaceId());
     }
 
-    public void delete(String webhookId) {
-        WebhookRegistration registration = repository.findById(webhookId)
-                .orElseThrow(() -> new UnknownWebhookException(webhookId));
-        clientFactory.forWorkspace(registration.workspaceId()).deleteWebhook(webhookId);
-        repository.delete(webhookId);
-        log.info("Deleted ClickUp webhook {}", webhookId);
+    public void delete() {
+        String workspaceId = clickUpProperties.workspaceId();
+        WebhookRegistration registration = store.findByWorkspace(workspaceId)
+                .orElseThrow(NoWebhookException::new);
+        deleteFromClickUp(clientFactory.forWorkspace(workspaceId), registration.webhookId());
+        store.delete(workspaceId);
+    }
+
+    private static void deleteFromClickUp(ClickUpClient client, String webhookId) {
+        try {
+            client.deleteWebhook(webhookId);
+            log.info("Deleted ClickUp webhook {}", webhookId);
+        } catch (ClickUpApiException e) {
+            if (e.statusCode() != 404) {
+                throw e;
+            }
+            log.info("ClickUp webhook {} was already gone", webhookId);
+        }
     }
 
     private static String stripTrailingSlash(String url) {
         return url.endsWith("/") ? url.substring(0, url.length() - 1) : url;
     }
 
-    public static class UnknownWebhookException extends RuntimeException {
+    public static class NoWebhookException extends RuntimeException {
 
-        public UnknownWebhookException(String webhookId) {
-            super("Unknown webhook " + webhookId);
+        public NoWebhookException() {
+            super("No webhook registered");
         }
     }
 }

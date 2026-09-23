@@ -1,0 +1,7 @@
+# Non-secret Cloud Run environment. Secrets come from Secret Manager (see .github/workflows/deploy.yml).
+SECRET_STORE: gcp
+GCP_PROJECT_ID: octo-agents
+APP_BASE_URL: https://clickup-management-182906449104.europe-west1.run.app
+CLICKUP_CLIENT_ID: DBGY775TBO637X9II6KRI2VES1GRWCSB
+CLICKUP_WORKSPACE_ID: "90152153739"
+CLICKUP_CUSTOM_FIELD_MAPPINGS: "{}"

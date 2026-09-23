@@ -1,6 +1,0 @@
-# Deployed environments: SPRING_PROFILES_ACTIVE=postgres
-spring:
-  datasource:
-    url: jdbc:postgresql://${PGHOST:localhost}:${PGPORT:5432}/${PGDATABASE:clickup}
-    username: ${PGUSER:clickup}
-    password: ${PGPASSWORD:clickup}

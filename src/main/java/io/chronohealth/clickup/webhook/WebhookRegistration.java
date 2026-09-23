@@ -1,6 +1,6 @@
 package io.chronohealth.clickup.webhook;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.List;
 
 public record WebhookRegistration(
@@ -9,7 +9,7 @@ public record WebhookRegistration(
         String endpoint,
         List<String> events,
         String secret,
-        OffsetDateTime createdAt
+        Instant createdAt
 ) {
 
     @Override

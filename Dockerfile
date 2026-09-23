@@ -11,7 +11,6 @@ WORKDIR /app
 RUN useradd --system --uid 1001 app
 COPY --from=build /app/app.jar app.jar
 USER app
-ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75" \
-    SPRING_PROFILES_ACTIVE=postgres
+ENV JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75"
 EXPOSE 8080
 ENTRYPOINT ["java", "-jar", "app.jar"]

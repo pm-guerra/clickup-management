@@ -1,0 +1,68 @@
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  PROJECT_ID: octo-agents
+  REGION: europe-west1
+  SERVICE: clickup-management
+  IMAGE: europe-west1-docker.pkg.dev/octo-agents/containers/clickup-management
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+      - run: ./mvnw -B test
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/182906449104/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+          service_account: clickup-management-deployer@octo-agents.iam.gserviceaccount.com
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build and push image
+        run: |
+          gcloud auth configure-docker ${REGION}-docker.pkg.dev --quiet
+          docker build -t ${IMAGE}:${GITHUB_SHA} .
+          docker push ${IMAGE}:${GITHUB_SHA}
+
+      - name: Deploy to Cloud Run
+        # Single instance: OAuth state and webhook de-duplication are kept in memory.
+        run: |
+          gcloud run deploy ${SERVICE} \
+            --project ${PROJECT_ID} \
+            --region ${REGION} \
+            --image ${IMAGE}:${GITHUB_SHA} \
+            --service-account clickup-management-run@${PROJECT_ID}.iam.gserviceaccount.com \
+            --allow-unauthenticated \
+            --min-instances 1 \
+            --max-instances 1 \
+            --cpu 1 \
+            --memory 512Mi \
+            --cpu-boost \
+            --env-vars-file deploy/cloudrun-env.yaml \
+            --set-secrets CLICKUP_CLIENT_SECRET=clickup-client-secret:latest,ADMIN_API_KEY=clickup-admin-api-key:latest
