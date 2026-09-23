@@ -12,9 +12,10 @@ import org.springframework.stereotype.Component;
 public class EventNormalizer {
 
     /**
-     * History fields whose before/after values are kept: tag names are workspace metadata, not task content.
+     * History fields whose before/after values are kept: tag and status names are workspace metadata, not task
+     * content.
      */
-    private static final Set<String> FIELDS_WITH_SAFE_VALUES = Set.of("tag", "tag_removed");
+    private static final Set<String> FIELDS_WITH_SAFE_VALUES = Set.of("tag", "tag_removed", "status");
 
     public ClickUpEvent normalize(ClickUpWebhookPayload payload, WebhookRegistration registration, byte[] rawBody) {
         List<ClickUpWebhookPayload.HistoryItem> historyItems = payload.historyItems() == null

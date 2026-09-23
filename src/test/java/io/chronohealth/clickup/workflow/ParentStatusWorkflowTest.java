@@ -159,6 +159,8 @@ class ParentStatusWorkflowTest {
                         new ClickUpProperties.ParentStatus(true, List.of("Story", "Bug", "Change"),
                                 List.of("in progress", "review", "blocked", "ready for testing", "complete"),
                                 "in progress", List.of("complete"), "ready for testing"),
-                        new ClickUpProperties.CreateDefaults(false, List.of())));
+                        new ClickUpProperties.CreateDefaults(false, List.of()),
+                        new ClickUpProperties.RejectionReopen(false, List.of(), List.of(), List.of(), List.of(),
+                                "waiting info")));
     }
 }

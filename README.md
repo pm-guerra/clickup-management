@@ -85,6 +85,17 @@ the list is skipped with a warning. Add more rules (e.g. `frontend`) in `applica
 The webhook subscribes to exactly the events the enabled workflows handle; after enabling/disabling a workflow,
 re-register it with `POST /admin/clickup/webhook`.
 
+### Workflow: rejected by testing -> reopen subtasks (`RejectionReopenWorkflow`)
+
+On `taskStatusUpdated`, when a **Story, Bug or Change** moves from **ready for testing** to **in progress** or
+**to do** (read from the status history item's before/after), its subtasks in `complete` go to **waiting info**.
+Subtasks in any other status (including `complete mobile` / `complete web`) are left alone. Configured in
+`clickup.workflows.rejection-reopen`.
+
+Interaction with the parent-status workflow: reopening subtasks triggers it, but it only moves parents forward and
+`waiting info` isn't a started status, so the parent isn't pushed back to ready for testing. If the parent was set to
+`to do` and some other subtask is still started (e.g. `in progress`), it moves the parent to `in progress`.
+
 ### Workflow: defaults on create (`CreateDefaultsWorkflow`)
 
 On `taskCreated`, a new **Bug** or **Change** gets `maintenance` = true (skipped if it's already set, or if the

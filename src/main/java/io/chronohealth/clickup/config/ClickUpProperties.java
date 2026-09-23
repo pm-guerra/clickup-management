@@ -27,7 +27,43 @@ public record ClickUpProperties(
     }
 
     public record Workflows(@Valid @NotNull CopyParentFields copyParentFields, @Valid @NotNull TagSubtasks tagSubtasks,
-                            @Valid @NotNull ParentStatus parentStatus, @Valid @NotNull CreateDefaults createDefaults) {
+                            @Valid @NotNull ParentStatus parentStatus, @Valid @NotNull CreateDefaults createDefaults,
+                            @Valid @NotNull RejectionReopen rejectionReopen) {
+    }
+
+    /**
+     * Reopens completed subtasks when testing rejects a task (see RejectionReopenWorkflow).
+     *
+     * @param taskTypes      task types this applies to
+     * @param fromStatuses   the task left one of these ("ready for testing")...
+     * @param toStatuses     ...for one of these ("in progress", "to do")
+     * @param reopenStatuses subtasks in these statuses are reopened ("complete")
+     * @param reopenTo       status the reopened subtasks get ("waiting info")
+     */
+    public record RejectionReopen(
+            boolean enabled,
+            List<String> taskTypes,
+            List<String> fromStatuses,
+            List<String> toStatuses,
+            List<String> reopenStatuses,
+            @NotBlank String reopenTo
+    ) {
+
+        public List<String> taskTypesOrEmpty() {
+            return taskTypes == null ? List.of() : taskTypes;
+        }
+
+        public List<String> fromStatusesOrEmpty() {
+            return fromStatuses == null ? List.of() : fromStatuses;
+        }
+
+        public List<String> toStatusesOrEmpty() {
+            return toStatuses == null ? List.of() : toStatuses;
+        }
+
+        public List<String> reopenStatusesOrEmpty() {
+            return reopenStatuses == null ? List.of() : reopenStatuses;
+        }
     }
 
     /**

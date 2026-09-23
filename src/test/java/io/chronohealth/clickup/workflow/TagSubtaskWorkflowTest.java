@@ -221,7 +221,9 @@ class TagSubtaskWorkflowTest {
                         new ClickUpProperties.TagSubtasks(enabled, rules),
                         new ClickUpProperties.ParentStatus(false, List.of(), List.of(), "in progress", List.of(),
                                 "ready for testing"),
-                        new ClickUpProperties.CreateDefaults(false, List.of())));
+                        new ClickUpProperties.CreateDefaults(false, List.of()),
+                        new ClickUpProperties.RejectionReopen(false, List.of(), List.of(), List.of(), List.of(),
+                                "waiting info")));
         return new TagSubtaskWorkflow(factory, new CustomFieldValueMapper(), new TaskTypeResolver(), properties);
     }
 

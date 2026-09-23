@@ -78,6 +78,15 @@ clickup:
       field-mappings: ${CLICKUP_CUSTOM_FIELD_MAPPINGS:{}}
       # Optional: only copy when the parent's custom task type id matches (e.g. the "Bug" type).
       parent-custom-item-id: ${CLICKUP_BUG_CUSTOM_ITEM_ID:}
+    # When testing rejects a task (ready for testing -> in progress / to do), reopen its completed subtasks
+    # (see RejectionReopenWorkflow).
+    rejection-reopen:
+      enabled: true
+      task-types: [Story, Bug, Change]
+      from-statuses: [ready for testing]
+      to-statuses: [in progress, to do]
+      reopen-statuses: [complete]
+      reopen-to: waiting info
     # When a task is created, set field defaults by task type (see CreateDefaultsWorkflow).
     create-defaults:
       enabled: true
