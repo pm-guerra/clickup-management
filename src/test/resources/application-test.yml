@@ -1,6 +1,10 @@
 spring:
   config:
     import: ""
+  datasource:
+    url: jdbc:h2:mem:test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;DB_CLOSE_DELAY=-1
+    username: sa
+    password:
 
 app:
   base-url: https://example.test
@@ -9,6 +13,9 @@ app:
     type: local
     local-path: target/test-secrets
     local-encryption-key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+  events:
+    scheduler:
+      enabled: false
 
 clickup:
   client-id: test-client

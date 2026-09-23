@@ -52,6 +52,37 @@
         </dependency>
 
         <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jdbc</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-flyway</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- Connects to Cloud SQL over an IAM-authorized, encrypted tunnel (no public IP allow-listing) -->
+        <dependency>
+            <groupId>com.google.cloud.sql</groupId>
+            <artifactId>postgres-socket-factory</artifactId>
+            <version>1.30.0</version>
+            <scope>runtime</scope>
+        </dependency>
+        <!-- Local development and tests (PostgreSQL compatibility mode) -->
+        <dependency>
+            <groupId>com.h2database</groupId>
+            <artifactId>h2</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.cloud</groupId>
             <artifactId>google-cloud-secretmanager</artifactId>
         </dependency>

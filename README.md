@@ -9,10 +9,32 @@ Java 25 + Spring Boot 4 service that integrates with ClickUp via OAuth and webho
 POST /clickup/webhook
   -> signature verification (HMAC-SHA256 of the raw body with the webhook secret, X-Signature header)
   -> normalize payload into a ClickUpEvent
-  -> idempotency check (webhook_id:history_item_id, kept in memory)
-  -> EventDispatcher -> EventHandler (business workflow)
-  -> ClickUpClient (all ClickUp HTTP goes through here)
+  -> store in webhook_event (unique idempotency key webhook_id:history_item_id, so duplicates are dropped)
+  -> immediate processing attempt: EventDispatcher -> EventHandler (business workflow) -> ClickUpClient
+  -> respond 200 (once stored, failures are ours to retry, not ClickUp's)
+
+POST /admin/events/process-due   (Cloud Scheduler, every minute; @Scheduled locally)
+  -> events that are due (FAILED with elapsed backoff, or stuck PROCESSING) are processed again
 ```
+
+### Event inbox and retries
+
+Every verified delivery is a row in `webhook_event` with a status:
+
+| Status       | Meaning                                                                                  |
+|--------------|------------------------------------------------------------------------------------------|
+| `PENDING`    | Stored, not processed yet                                                                |
+| `PROCESSING` | Claimed by a worker; if its lock (5 min) expires, it's picked up again                   |
+| `SUCCEEDED`  | Done; pruned after 30 days                                                               |
+| `FAILED`     | Attempt failed; retried at `next_attempt_at` (1 min, doubling, capped at 6 h)            |
+| `DEAD`       | Gave up: non-retryable error (ClickUp 4xx other than 408/429) or 8 attempts reached      |
+
+`last_error` holds only the exception type and, for ClickUp errors, status + ECODE (no task data).
+Handlers must be idempotent, because a retry re-runs the whole handler.
+
+Admin (all need `X-Admin-Key`): `GET /admin/events?status=FAILED|DEAD|...`, `GET /admin/events/{id}`,
+`POST /admin/events/{id}/retry` (requeue a FAILED/DEAD event with a fresh attempt budget and run it now),
+`POST /admin/events/process-due`.
 
 | Package    | Responsibility                                                                       |
 |------------|--------------------------------------------------------------------------------------|
@@ -20,7 +42,8 @@ POST /clickup/webhook
 | `secret`   | `SecretStore`: GCP Secret Manager when deployed, AES-GCM encrypted files locally     |
 | `token`    | `AccessTokenStore` abstraction over `SecretStore`                                    |
 | `client`   | `ClickUpClient` (tasks, custom fields, webhooks), timeouts, error mapping, 429 retry |
-| `webhook`  | Receiver, signature check, normalization, idempotency, dispatch, webhook admin API   |
+| `webhook`  | Receiver, signature check, normalization, dispatch, webhook admin API                |
+| `event`    | Event inbox (`webhook_event`), processor, retry policy/job, event admin API          |
 | `workflow` | Business rules (`EventHandler` implementations)                                      |
 
 ### First workflow: copy parent Bug fields to new subtasks
@@ -52,9 +75,9 @@ git-ignored `.env` file at the repo root; it is loaded automatically.
 
 ## Running locally
 
-There is no database. The only durable state is the OAuth token and the webhook secret; locally they're
-encrypted files in `./data/secrets`, on Cloud Run they're Secret Manager secrets. OAuth `state` and webhook
-de-duplication are in memory, which is why Cloud Run runs exactly one instance.
+Locally the database is an H2 file in `./data` (PostgreSQL mode), so nothing needs installing; on Cloud Run
+it's Cloud SQL Postgres. The OAuth token and webhook secret live in the `SecretStore`: encrypted files in
+`./data/secrets` locally, Secret Manager on Cloud Run. OAuth `state` is in memory, so Cloud Run runs one instance.
 
 ```bash
 ./mvnw spring-boot:run
@@ -82,11 +105,15 @@ curl -X POST -H "X-Admin-Key: $ADMIN_API_KEY" http://localhost:8080/admin/clicku
 Service URL: https://clickup-management-182906449104.europe-west1.run.app
 
 - **One-time setup:** `set -a; source .env; set +a; bash deploy/gcp-setup.sh`. This enables the APIs, creates
-  the runtime/deployer service accounts and secrets, and lets this repo deploy via Workload Identity Federation.
+  the service accounts, secrets, Cloud SQL instance (`clickup-management-db`, Postgres 17, db-f1-micro) with
+  database/user, the Cloud Scheduler retry job, and lets this repo deploy via Workload Identity Federation.
 - **Deploy:** push to `master` (or run the *Deploy* workflow). GitHub Actions tests, builds the Dockerfile,
   pushes to Artifact Registry and deploys to Cloud Run.
 - **Config:** non-secret env vars in [deploy/cloudrun-env.yaml](deploy/cloudrun-env.yaml); secrets in Secret Manager
-  (`clickup-client-secret`, `clickup-admin-api-key`, `clickup-oauth-token-<ws>`, `clickup-webhook-<ws>`).
+  (`clickup-client-secret`, `clickup-admin-api-key`, `clickup-db-password`, `clickup-oauth-token-<ws>`,
+  `clickup-webhook-<ws>`). Cloud Run reaches Cloud SQL through the Cloud SQL Java connector (no public IP allow-list).
+- **Rotating the admin key:** add a secret version, redeploy, and re-run the setup script so the Cloud Scheduler
+  job gets the new header.
 - **Admin key:** `gcloud secrets versions access latest --secret clickup-admin-api-key --project octo-agents`
 - Admin POSTs need a body (Google's front end rejects POST without `Content-Length`): `curl -X POST -d '' -H "X-Admin-Key: $KEY" ...`
 

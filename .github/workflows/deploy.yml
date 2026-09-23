@@ -51,7 +51,7 @@ jobs:
           docker push ${IMAGE}:${GITHUB_SHA}
 
       - name: Deploy to Cloud Run
-        # Single instance: OAuth state and webhook de-duplication are kept in memory.
+        # Single instance: OAuth state is kept in memory.
         run: |
           gcloud run deploy ${SERVICE} \
             --project ${PROJECT_ID} \
@@ -64,5 +64,6 @@ jobs:
             --cpu 1 \
             --memory 512Mi \
             --cpu-boost \
+            --add-cloudsql-instances ${PROJECT_ID}:${REGION}:clickup-management-db \
             --env-vars-file deploy/cloudrun-env.yaml \
-            --set-secrets CLICKUP_CLIENT_SECRET=clickup-client-secret:latest,ADMIN_API_KEY=clickup-admin-api-key:latest
+            --set-secrets CLICKUP_CLIENT_SECRET=clickup-client-secret:latest,ADMIN_API_KEY=clickup-admin-api-key:latest,SPRING_DATASOURCE_PASSWORD=clickup-db-password:latest

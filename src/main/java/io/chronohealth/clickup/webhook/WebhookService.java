@@ -1,5 +1,8 @@
 package io.chronohealth.clickup.webhook;
 
+import io.chronohealth.clickup.event.EventProcessor;
+import io.chronohealth.clickup.event.EventRepository;
+import io.chronohealth.clickup.event.EventRepository.NewEvent;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -9,8 +12,9 @@ import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Webhook pipeline: signature verification -> normalization -> idempotency -> dispatch.
- * Transport concerns stop here; business rules live in {@link EventHandler}s.
+ * Webhook pipeline: signature verification -> normalization -> store in the event inbox (deduplicated by
+ * idempotency key) -> immediate processing attempt. Anything that fails is retried later by the retry job, so
+ * once an event is stored we always acknowledge it. Business rules live in {@link EventHandler}s.
  */
 @Service
 public class WebhookService {
@@ -21,18 +25,18 @@ public class WebhookService {
     private final WebhookRegistrationStore registrations;
     private final WebhookSignatureVerifier signatureVerifier;
     private final EventNormalizer normalizer;
-    private final ProcessedEventStore processedEvents;
-    private final EventDispatcher dispatcher;
+    private final EventRepository events;
+    private final EventProcessor processor;
 
     public WebhookService(JsonMapper jsonMapper, WebhookRegistrationStore registrations,
                           WebhookSignatureVerifier signatureVerifier, EventNormalizer normalizer,
-                          ProcessedEventStore processedEvents, EventDispatcher dispatcher) {
+                          EventRepository events, EventProcessor processor) {
         this.jsonMapper = jsonMapper;
         this.registrations = registrations;
         this.signatureVerifier = signatureVerifier;
         this.normalizer = normalizer;
-        this.processedEvents = processedEvents;
-        this.dispatcher = dispatcher;
+        this.events = events;
+        this.processor = processor;
     }
 
     public Outcome handle(byte[] rawBody, String signature) {
@@ -62,23 +66,19 @@ public class WebhookService {
         ClickUpWebhookPayload payload = jsonMapper.treeToValue(tree, ClickUpWebhookPayload.class);
         ClickUpEvent event = normalizer.normalize(payload, registration.get(), rawBody);
 
-        if (!processedEvents.tryClaim(event)) {
-            log.info("Skipping duplicate event {} ({})", event.idempotencyKey(), event.type());
+        Optional<Long> eventId = events.insert(new NewEvent(event.idempotencyKey(), event.webhookId(),
+                event.workspaceId(), event.type(), event.taskId(), jsonMapper.writeValueAsString(event)));
+        if (eventId.isEmpty()) {
+            log.info("Skipping duplicate delivery {} ({}, task {})", event.idempotencyKey(), event.type(), event.taskId());
             return Outcome.DUPLICATE;
         }
-        try {
-            dispatcher.dispatch(event);
-            processedEvents.markCompleted(event);
-            return Outcome.PROCESSED;
-        } catch (RuntimeException e) {
-            // Release so ClickUp's retry gets another chance.
-            processedEvents.release(event);
-            throw e;
-        }
+        log.info("Stored event {} ({}, task {})", eventId.get(), event.type(), event.taskId());
+        processor.process(eventId.get());
+        return Outcome.ACCEPTED;
     }
 
     public enum Outcome {
-        PROCESSED,
+        ACCEPTED,
         DUPLICATE,
         REJECTED,
         MALFORMED

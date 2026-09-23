@@ -5,3 +5,9 @@ APP_BASE_URL: https://clickup-management-182906449104.europe-west1.run.app
 CLICKUP_CLIENT_ID: DBGY775TBO637X9II6KRI2VES1GRWCSB
 CLICKUP_WORKSPACE_ID: "90152153739"
 CLICKUP_CUSTOM_FIELD_MAPPINGS: "{}"
+# Cloud SQL via the Java connector (IAM-authorized tunnel; the password comes from Secret Manager)
+SPRING_DATASOURCE_URL: "jdbc:postgresql:///clickup?cloudSqlInstance=octo-agents:europe-west1:clickup-management-db&socketFactory=com.google.cloud.sql.postgres.SocketFactory"
+SPRING_DATASOURCE_USERNAME: clickup
+SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "5"
+# Retries are triggered by Cloud Scheduler (CPU is throttled between requests on Cloud Run)
+EVENT_SCHEDULER_ENABLED: "false"

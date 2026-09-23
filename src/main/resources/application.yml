@@ -11,6 +11,12 @@ spring:
   jackson:
     # ClickUp's API is snake_case; lets DTO records map without annotations.
     property-naming-strategy: SNAKE_CASE
+  # Local default: H2 file database (PostgreSQL mode) in ./data - nothing to install.
+  # Cloud Run overrides with SPRING_DATASOURCE_URL/USERNAME/PASSWORD pointing at Cloud SQL.
+  datasource:
+    url: jdbc:h2:file:./data/clickup;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERING=HIGH;AUTO_SERVER=TRUE
+    username: sa
+    password:
 
 server:
   port: ${PORT:8080}
@@ -35,6 +41,18 @@ app:
     local-path: ${LOCAL_SECRETS_PATH:./data/secrets}
     local-encryption-key: ${TOKEN_ENCRYPTION_KEY:}
     gcp-project-id: ${GCP_PROJECT_ID:}
+  # Webhook event inbox and retries
+  events:
+    max-attempts: 8
+    initial-backoff: 1m
+    max-backoff: 6h
+    lock-duration: 5m
+    batch-size: 20
+    retention: 30d
+    scheduler:
+      # In-process retries for local runs; on Cloud Run, Cloud Scheduler calls POST /admin/events/process-due.
+      enabled: ${EVENT_SCHEDULER_ENABLED:true}
+      interval: 60s
 
 clickup:
   client-id: ${CLICKUP_CLIENT_ID}

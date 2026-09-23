@@ -23,7 +23,7 @@ public class WebhookController {
     public ResponseEntity<Void> receive(@RequestBody byte[] rawBody,
                                         @RequestHeader(name = "X-Signature", required = false) String signature) {
         HttpStatus status = switch (webhookService.handle(rawBody, signature)) {
-            case PROCESSED, DUPLICATE -> HttpStatus.OK;
+            case ACCEPTED, DUPLICATE -> HttpStatus.OK;
             case REJECTED -> HttpStatus.UNAUTHORIZED;
             case MALFORMED -> HttpStatus.BAD_REQUEST;
         };

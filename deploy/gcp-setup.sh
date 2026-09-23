@@ -14,6 +14,10 @@ WORKSPACE_ID=90152153739
 GITHUB_REPO=pm-guerra/clickup-management
 POOL=github-pool
 PROVIDER=github-provider
+SQL_INSTANCE="${SERVICE}-db"
+DB_NAME=clickup
+DB_USER=clickup
+SERVICE_URL="https://${SERVICE}-${PROJECT_NUMBER}.${REGION}.run.app"
 
 RUNTIME_SA="${SERVICE}-run@${PROJECT}.iam.gserviceaccount.com"
 DEPLOYER_SA="${SERVICE}-deployer@${PROJECT}.iam.gserviceaccount.com"
@@ -22,8 +26,12 @@ WEBHOOK_SECRET="clickup-webhook-${WORKSPACE_ID}"
 
 : "${CLICKUP_CLIENT_SECRET:?CLICKUP_CLIENT_SECRET must be set}"
 
+# Strips CR/LF: on Windows (Git Bash) tools emit CRLF, which would end up inside secrets.
+clean() { tr -d '\r\n'; }
+
 echo "==> Enabling APIs"
-gcloud services enable run.googleapis.com secretmanager.googleapis.com --project "$PROJECT"
+gcloud services enable run.googleapis.com secretmanager.googleapis.com sqladmin.googleapis.com \
+  cloudscheduler.googleapis.com --project "$PROJECT"
 
 echo "==> Service accounts"
 for sa in "${SERVICE}-run" "${SERVICE}-deployer"; do
@@ -37,20 +45,39 @@ create_secret() {
 }
 
 has_versions() {
-  [ -n "$(gcloud secrets versions list "$1" --project "$PROJECT" --limit=1 --format='value(name)')" ]
+  [ -n "$(gcloud secrets versions list "$1" --project "$PROJECT" --filter='state=ENABLED' --limit=1 --format='value(name)')" ]
 }
 
 echo "==> Secrets"
-for s in clickup-client-secret clickup-admin-api-key "$TOKEN_SECRET" "$WEBHOOK_SECRET"; do
+for s in clickup-client-secret clickup-admin-api-key clickup-db-password "$TOKEN_SECRET" "$WEBHOOK_SECRET"; do
   create_secret "$s"
 done
 has_versions clickup-client-secret \
-  || printf '%s' "$CLICKUP_CLIENT_SECRET" | gcloud secrets versions add clickup-client-secret --project "$PROJECT" --data-file=-
+  || printf '%s' "$CLICKUP_CLIENT_SECRET" | clean | gcloud secrets versions add clickup-client-secret --project "$PROJECT" --data-file=-
 has_versions clickup-admin-api-key \
-  || openssl rand -hex 24 | tr -d '\r\n' | gcloud secrets versions add clickup-admin-api-key --project "$PROJECT" --data-file=-
+  || openssl rand -hex 24 | clean | gcloud secrets versions add clickup-admin-api-key --project "$PROJECT" --data-file=-
+has_versions clickup-db-password \
+  || openssl rand -base64 30 | tr -d '\r\n/+=' | gcloud secrets versions add clickup-db-password --project "$PROJECT" --data-file=-
+
+echo "==> Cloud SQL (Postgres)"
+gcloud sql instances describe "$SQL_INSTANCE" --project "$PROJECT" >/dev/null 2>&1 \
+  || gcloud sql instances create "$SQL_INSTANCE" --project "$PROJECT" --region "$REGION" \
+       --database-version POSTGRES_17 --edition ENTERPRISE --tier db-f1-micro \
+       --storage-type SSD --storage-size 10 --storage-auto-increase \
+       --backup-start-time 03:00 --deletion-protection
+gcloud sql databases describe "$DB_NAME" --instance "$SQL_INSTANCE" --project "$PROJECT" >/dev/null 2>&1 \
+  || gcloud sql databases create "$DB_NAME" --instance "$SQL_INSTANCE" --project "$PROJECT"
+DB_PASSWORD=$(gcloud secrets versions access latest --secret clickup-db-password --project "$PROJECT" | clean)
+if gcloud sql users list --instance "$SQL_INSTANCE" --project "$PROJECT" --format='value(name)' | tr -d '\r' | grep -qx "$DB_USER"; then
+  gcloud sql users set-password "$DB_USER" --instance "$SQL_INSTANCE" --project "$PROJECT" --password "$DB_PASSWORD" >/dev/null
+else
+  gcloud sql users create "$DB_USER" --instance "$SQL_INSTANCE" --project "$PROJECT" --password "$DB_PASSWORD"
+fi
 
 echo "==> Runtime service account permissions"
-for s in clickup-client-secret clickup-admin-api-key "$TOKEN_SECRET" "$WEBHOOK_SECRET"; do
+gcloud projects add-iam-policy-binding "$PROJECT" \
+  --member "serviceAccount:${RUNTIME_SA}" --role roles/cloudsql.client --condition=None >/dev/null
+for s in clickup-client-secret clickup-admin-api-key clickup-db-password "$TOKEN_SECRET" "$WEBHOOK_SECRET"; do
   gcloud secrets add-iam-policy-binding "$s" --project "$PROJECT" \
     --member "serviceAccount:${RUNTIME_SA}" --role roles/secretmanager.secretAccessor --condition=None >/dev/null
 done
@@ -70,7 +97,7 @@ gcloud iam service-accounts add-iam-policy-binding "$RUNTIME_SA" --project "$PRO
 
 echo "==> GitHub Workload Identity Federation"
 CONDITION=$(gcloud iam workload-identity-pools providers describe "$PROVIDER" \
-  --workload-identity-pool "$POOL" --location global --project "$PROJECT" --format='value(attributeCondition)')
+  --workload-identity-pool "$POOL" --location global --project "$PROJECT" --format='value(attributeCondition)' | tr -d '\r')
 if [[ "$CONDITION" != *"'${GITHUB_REPO}'"* ]]; then
   gcloud iam workload-identity-pools providers update-oidc "$PROVIDER" \
     --workload-identity-pool "$POOL" --location global --project "$PROJECT" \
@@ -79,5 +106,18 @@ fi
 gcloud iam service-accounts add-iam-policy-binding "$DEPLOYER_SA" --project "$PROJECT" \
   --role roles/iam.workloadIdentityUser \
   --member "principalSet://iam.googleapis.com/projects/${PROJECT_NUMBER}/locations/global/workloadIdentityPools/${POOL}/attribute.repository/${GITHUB_REPO}" >/dev/null
+
+echo "==> Cloud Scheduler: process due/failed webhook events every minute"
+ADMIN_KEY=$(gcloud secrets versions access latest --secret clickup-admin-api-key --project "$PROJECT" | clean)
+SCHEDULER_ARGS=(--project "$PROJECT" --location "$REGION" --schedule "* * * * *"
+  --uri "${SERVICE_URL}/admin/events/process-due" --http-method POST --message-body "{}"
+  --attempt-deadline 300s)
+if gcloud scheduler jobs describe "${SERVICE}-retry" --project "$PROJECT" --location "$REGION" >/dev/null 2>&1; then
+  gcloud scheduler jobs update http "${SERVICE}-retry" "${SCHEDULER_ARGS[@]}" \
+    --update-headers "X-Admin-Key=${ADMIN_KEY},Content-Type=application/json" >/dev/null
+else
+  gcloud scheduler jobs create http "${SERVICE}-retry" "${SCHEDULER_ARGS[@]}" \
+    --headers "X-Admin-Key=${ADMIN_KEY},Content-Type=application/json" >/dev/null
+fi
 
 echo "==> Done. Push to master (or run the Deploy workflow) to deploy."
