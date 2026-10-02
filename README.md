@@ -142,7 +142,14 @@ Rules (configured in `app.audit.rules`):
 The report goes to the ClickUp Chat channel `AUDIT_NOTIFY_CHANNEL_ID` (or a DM to `AUDIT_NOTIFY_USER_ID`). After
 changing a rule's definition, `POST /admin/audit/reset` clears findings and rewinds the window.
 
-To add a rule: implement `AuditRule` as a Spring component (return a message when the task breaks the rule, empty
+- `status-move` (checks each status change, from the stored webhook events): Stories/Bugs/Changes/Epics may only
+  be moved by testers and admins; stream tasks (and sub-subtasks inside them) only by devs of that stream and admins.
+- `stream-tag-change`: only admins may add or remove the backend/web/mobile tags.
+
+People and roles are in `app.audit.people`. Change checks start from the first run after they're enabled (not
+retroactive).
+
+To add a rule: implement `AuditRule` (task state) or `AuditEventRule` (who changed what) as a Spring component (return a message when the task breaks the rule, empty
 otherwise) and add it to the ClickUp "Automation Rules" doc.
 
 ## Configuration

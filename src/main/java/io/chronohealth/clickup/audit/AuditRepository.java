@@ -15,6 +15,11 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuditRepository {
 
     private static final int STATE_ID = 1;
+    private static final int EVENTS_STATE_ID = 2;
+    /**
+     * Findings from event rules are one-off (a change someone made); their rule ids carry this prefix.
+     */
+    static final String EVENT_PREFIX = "event:";
     private static final String COLUMNS =
             "id, rule_id, task_id, details, first_seen_at, last_seen_at, resolved_at, notified_at";
 
@@ -27,24 +32,53 @@ public class AuditRepository {
     }
 
     public Optional<OffsetDateTime> lastCheckedUntil() {
-        return jdbc.sql("select last_checked_until from audit_state where id = :id")
-                .param("id", STATE_ID)
-                .query(OffsetDateTime.class)
-                .optional();
+        return checkpoint(STATE_ID);
     }
 
-    @Transactional
     public void saveLastCheckedUntil(OffsetDateTime until) {
-        int updated = jdbc.sql("update audit_state set last_checked_until = :until where id = :id")
-                .param("until", until)
-                .param("id", STATE_ID)
-                .update();
-        if (updated == 0) {
-            jdbc.sql("insert into audit_state (id, last_checked_until) values (:id, :until)")
-                    .param("id", STATE_ID)
-                    .param("until", until)
-                    .update();
+        saveCheckpoint(STATE_ID, until);
+    }
+
+    /**
+     * How far the event (who-did-what) checks got; separate from the task window.
+     */
+    public Optional<OffsetDateTime> eventsCheckedUntil() {
+        return checkpoint(EVENTS_STATE_ID);
+    }
+
+    public void saveEventsCheckedUntil(OffsetDateTime until) {
+        saveCheckpoint(EVENTS_STATE_ID, until);
+    }
+
+    /**
+     * Records a wrong change. One row per (rule, event); recording the same one again is a no-op.
+     */
+    public void recordEventFinding(String ruleId, long eventId, int index, String taskId, String details) {
+        String key = EVENT_PREFIX + ruleId + ":" + eventId + ":" + index;
+        if (find(key, taskId).isPresent()) {
+            return;
         }
+        OffsetDateTime now = now();
+        jdbc.sql("""
+                        insert into audit_violation (rule_id, task_id, details, first_seen_at, last_seen_at)
+                        values (:rule, :task, :details, :now, :now)
+                        """)
+                .param("rule", key)
+                .param("task", taskId)
+                .param("details", truncate(details))
+                .param("now", now)
+                .update();
+    }
+
+    /**
+     * Event findings don't stay open once reported.
+     */
+    public void closeReportedEventFindings() {
+        jdbc.sql("update audit_violation set resolved_at = :now "
+                        + "where rule_id like :prefix and notified_at is not null and resolved_at is null")
+                .param("now", now())
+                .param("prefix", EVENT_PREFIX + "%")
+                .update();
     }
 
     /**
@@ -125,6 +159,27 @@ public class AuditRepository {
                 .param("now", now())
                 .param("ids", ids)
                 .update();
+    }
+
+    private Optional<OffsetDateTime> checkpoint(int id) {
+        return jdbc.sql("select last_checked_until from audit_state where id = :id")
+                .param("id", id)
+                .query(OffsetDateTime.class)
+                .optional();
+    }
+
+    @Transactional
+    void saveCheckpoint(int id, OffsetDateTime until) {
+        int updated = jdbc.sql("update audit_state set last_checked_until = :until where id = :id")
+                .param("until", until)
+                .param("id", id)
+                .update();
+        if (updated == 0) {
+            jdbc.sql("insert into audit_state (id, last_checked_until) values (:id, :until)")
+                    .param("id", id)
+                    .param("until", until)
+                    .update();
+        }
     }
 
     private Optional<Violation> find(String ruleId, String taskId) {

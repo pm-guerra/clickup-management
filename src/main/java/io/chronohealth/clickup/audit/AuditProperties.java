@@ -1,6 +1,7 @@
 package io.chronohealth.clickup.audit;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import java.time.Duration;
 import java.util.List;
@@ -16,6 +17,9 @@ import org.springframework.validation.annotation.Validated;
  * @param listIds         only audit these lists; empty for the whole Workspace
  * @param notifyChannelId ClickUp Chat channel the report is posted to; takes precedence over {@code notifyUserId}
  * @param notifyUserId    ClickUp user id that gets the report as a direct message when no channel is set
+ * @param people          who's who, for the permission rules (anyone not listed has no permissions)
+ * @param mainTaskTypes   task types testers may move (Story, Bug, Change, Epic)
+ * @param streams         stream names, also the stream tags (backend, web, mobile)
  * @param scheduler       in-process hourly trigger for local runs; on Cloud Run, Cloud Scheduler calls the endpoint
  * @param rules           per-rule settings
  */
@@ -30,6 +34,9 @@ public record AuditProperties(
         List<String> listIds,
         String notifyChannelId,
         String notifyUserId,
+        List<@Valid Person> people,
+        List<String> mainTaskTypes,
+        List<String> streams,
         @Valid @NotNull Scheduler scheduler,
         @Valid @NotNull Rules rules
 ) {
@@ -38,10 +45,35 @@ public record AuditProperties(
         return listIds == null ? List.of() : listIds;
     }
 
+    public List<Person> peopleOrEmpty() {
+        return people == null ? List.of() : people;
+    }
+
+    public List<String> mainTaskTypesOrEmpty() {
+        return mainTaskTypes == null ? List.of() : mainTaskTypes;
+    }
+
+    public List<String> streamsOrEmpty() {
+        return streams == null ? List.of() : streams;
+    }
+
+    /**
+     * @param id     ClickUp user id
+     * @param name   display name used in reports
+     * @param role   admin, tester or dev
+     * @param stream for devs: backend, web or mobile
+     */
+    public record Person(@NotBlank String id, @NotBlank String name, @NotBlank String role, String stream) {
+    }
+
     public record Scheduler(boolean enabled) {
     }
 
-    public record Rules(@Valid @NotNull StreamTaskStatus streamTaskStatus) {
+    public record Rules(@Valid @NotNull StreamTaskStatus streamTaskStatus, @Valid @NotNull Toggle statusMove,
+                        @Valid @NotNull Toggle streamTagChange) {
+    }
+
+    public record Toggle(boolean enabled) {
     }
 
     /**

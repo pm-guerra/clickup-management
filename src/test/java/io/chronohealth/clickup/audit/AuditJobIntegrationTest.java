@@ -44,6 +44,8 @@ class AuditJobIntegrationTest {
     private AuditRepository repository;
     @Autowired
     private JdbcClient jdbc;
+    @Autowired
+    private io.chronohealth.clickup.event.EventRepository events;
     @MockitoBean
     private ClickUpClientFactory factory;
 
@@ -53,6 +55,7 @@ class AuditJobIntegrationTest {
     void setUp() {
         jdbc.sql("delete from audit_violation").update();
         jdbc.sql("delete from audit_state").update();
+        jdbc.sql("delete from webhook_event").update();
         when(factory.forWorkspace(anyString())).thenReturn(client);
         when(client.getCustomTaskTypes(anyString())).thenReturn(List.of(
                 new CustomTaskType(BUG, "Bug"), new CustomTaskType(STORY, "Story")));
@@ -119,6 +122,38 @@ class AuditJobIntegrationTest {
         ArgumentCaptor<java.time.Instant> since = ArgumentCaptor.forClass(java.time.Instant.class);
         verify(client, times(2)).getTasksUpdatedSince(anyString(), since.capture(), anyList(), anyInt());
         assertThat(since.getAllValues().get(1)).isAfter(since.getAllValues().get(0));
+    }
+
+    @Test
+    void reportsWrongChangesMadeAfterTheFirstRun() {
+        changed();
+        job.run(); // first run only sets the starting point for change checks
+
+        Task bug = task("bug", "Login bug", null, BUG, "in progress");
+        when(client.getTask("bug")).thenReturn(bug);
+        storeEvent("taskStatusUpdated", "bug", "status", 112510284L, // Luís (backend dev) moving a Bug
+                "{\"status\":\"to do\"}", "{\"status\":\"in progress\"}");
+        storeEvent("taskTagUpdated", "bug", "tag", 100796657L, null, "[{\"name\":\"web\"}]"); // Pedro (admin): fine
+
+        assertThat(job.run().newIssues()).isEqualTo(1);
+        ArgumentCaptor<String> message = ArgumentCaptor.forClass(String.class);
+        verify(client).sendChatMessage(anyString(), eq("chan-1"), message.capture());
+        assertThat(message.getValue()).contains("[Login bug](https://app.clickup.com/t/bug)")
+                .contains("Luís (backend dev) moved it from 'to do' to 'in progress'");
+
+        // Reported once, then closed.
+        assertThat(repository.findOpen()).isEmpty();
+        assertThat(job.run().newIssues()).isZero();
+    }
+
+    private void storeEvent(String type, String taskId, String field, long userId, String before, String after) {
+        String key = "wh:" + java.util.UUID.randomUUID();
+        String payload = "{\"idempotency_key\":\"" + key + "\",\"webhook_id\":\"wh\",\"workspace_id\":\"9001\","
+                + "\"type\":\"" + type + "\",\"task_id\":\"" + taskId + "\",\"history_items\":[{\"id\":\"h-" + key
+                + "\",\"field\":\"" + field + "\",\"user\":{\"id\":" + userId + "},\"before\":" + before
+                + ",\"after\":" + after + "}]}";
+        events.insert(new io.chronohealth.clickup.event.EventRepository.NewEvent(key, "wh", "9001", type, taskId,
+                payload));
     }
 
     private void changed(Task... tasks) {

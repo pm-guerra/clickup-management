@@ -143,6 +143,22 @@ public class EventRepository {
                 .list();
     }
 
+    /**
+     * Events of the given types received in [from, to), oldest first.
+     */
+    public List<StoredEvent> findReceivedBetween(List<String> eventTypes, OffsetDateTime from, OffsetDateTime to) {
+        if (eventTypes.isEmpty()) {
+            return List.of();
+        }
+        return jdbc.sql("select " + COLUMNS + " from webhook_event where event_type in (:types) "
+                        + "and received_at >= :from and received_at < :to order by received_at")
+                .param("types", eventTypes)
+                .param("from", from)
+                .param("to", to)
+                .query(this::map)
+                .list();
+    }
+
     public int deleteSucceededBefore(OffsetDateTime cutoff) {
         return jdbc.sql("delete from webhook_event where status = 'SUCCEEDED' and updated_at < :cutoff")
                 .param("cutoff", cutoff)
