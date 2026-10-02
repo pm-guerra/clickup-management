@@ -120,4 +120,16 @@ else
     --headers "X-Admin-Key=${ADMIN_KEY},Content-Type=application/json" >/dev/null
 fi
 
+echo "==> Cloud Scheduler: hourly audit"
+AUDIT_ARGS=(--project "$PROJECT" --location "$REGION" --schedule "0 * * * *"
+  --uri "${SERVICE_URL}/admin/audit/run" --http-method POST --message-body "{}"
+  --attempt-deadline 600s)
+if gcloud scheduler jobs describe "${SERVICE}-audit" --project "$PROJECT" --location "$REGION" >/dev/null 2>&1; then
+  gcloud scheduler jobs update http "${SERVICE}-audit" "${AUDIT_ARGS[@]}" \
+    --update-headers "X-Admin-Key=${ADMIN_KEY},Content-Type=application/json" >/dev/null
+else
+  gcloud scheduler jobs create http "${SERVICE}-audit" "${AUDIT_ARGS[@]}" \
+    --headers "X-Admin-Key=${ADMIN_KEY},Content-Type=application/json" >/dev/null
+fi
+
 echo "==> Done. Push to master (or run the Deploy workflow) to deploy."

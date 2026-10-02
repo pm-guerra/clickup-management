@@ -10,6 +10,7 @@ import io.chronohealth.clickup.client.dto.TaskUpdate;
 import io.chronohealth.clickup.client.dto.User;
 import io.chronohealth.clickup.client.dto.Webhook;
 import io.chronohealth.clickup.client.dto.Workspace;
+import java.time.Instant;
 import java.util.List;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -67,6 +68,51 @@ public class ClickUpClient {
         return http.execute("getTask", () -> api().get()
                 .uri(b -> b.path("/task/{taskId}").queryParam("include_subtasks", includeSubtasks).build(taskId))
                 .retrieve().body(Task.class));
+    }
+
+    /**
+     * One page (up to 100) of the Workspace's tasks updated after {@code updatedAfter}, including subtasks and closed
+     * tasks, oldest update first.
+     *
+     * @param listIds restrict to these lists; empty for the whole Workspace
+     */
+    public TaskPage getTasksUpdatedSince(String workspaceId, Instant updatedAfter, List<String> listIds, int page) {
+        return http.execute("getTasksUpdatedSince", () -> api().get()
+                .uri(b -> {
+                    b.path("/team/{workspaceId}/task")
+                            .queryParam("date_updated_gt", updatedAfter.toEpochMilli())
+                            .queryParam("include_closed", true)
+                            .queryParam("subtasks", true)
+                            .queryParam("order_by", "updated")
+                            .queryParam("reverse", true)
+                            .queryParam("page", page);
+                    listIds.forEach(id -> b.queryParam("list_ids[]", id));
+                    return b.build(workspaceId);
+                })
+                .retrieve().body(TaskPage.class));
+    }
+
+    /**
+     * Id of the direct-message chat channel with {@code userId}; created by ClickUp if it doesn't exist yet.
+     */
+    public String getOrCreateDirectMessage(String workspaceId, String userId) {
+        return http.execute("getOrCreateDirectMessage", () -> api().post()
+                .uri(http.v3BaseUrl() + "/workspaces/{workspaceId}/chat/channels/direct_message", workspaceId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new DirectMessageBody(List.of(userId)))
+                .retrieve().body(ChatChannelResponse.class).data().id());
+    }
+
+    /**
+     * Posts a Markdown message to a chat channel (including direct-message channels).
+     */
+    public void sendChatMessage(String workspaceId, String channelId, String markdown) {
+        http.run("sendChatMessage", () -> api().post()
+                .uri(http.v3BaseUrl() + "/workspaces/{workspaceId}/chat/channels/{channelId}/messages",
+                        workspaceId, channelId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ChatMessageBody("message", markdown, "text/md"))
+                .retrieve().toBodilessEntity());
     }
 
     /**
@@ -134,7 +180,33 @@ public class ClickUpClient {
                 .build();
     }
 
+    /**
+     * @param lastPage true when there are no more pages
+     */
+    public record TaskPage(List<Task> tasks, Boolean lastPage) {
+
+        public List<Task> tasksOrEmpty() {
+            return tasks == null ? List.of() : tasks;
+        }
+
+        public boolean isLastPage() {
+            return lastPage == null || lastPage || tasksOrEmpty().isEmpty();
+        }
+    }
+
     private record UserResponse(User user) {
+    }
+
+    private record DirectMessageBody(List<String> userIds) {
+    }
+
+    private record ChatChannelResponse(ChatChannel data) {
+    }
+
+    private record ChatChannel(String id) {
+    }
+
+    private record ChatMessageBody(String type, String content, String contentFormat) {
     }
 
     private record CustomTaskTypesResponse(List<CustomTaskType> customItems) {

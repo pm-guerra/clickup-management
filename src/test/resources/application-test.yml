@@ -13,6 +13,11 @@ app:
     type: local
     local-path: target/test-secrets
     local-encryption-key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+  audit:
+    api-pacing: 0s
+    notify-user-id: ""
+    scheduler:
+      enabled: false
   events:
     pacing: 0s
     run-budget: 10s

@@ -28,12 +28,15 @@ public class ClickUpHttp {
     private static final Logger log = LoggerFactory.getLogger(ClickUpHttp.class);
 
     private final RestClient restClient;
+    private final String v3BaseUrl;
     private final JsonMapper jsonMapper;
     private final ClickUpProperties.RateLimit rateLimit;
     private final Clock clock;
 
     public ClickUpHttp(RestClient.Builder builder, JsonMapper jsonMapper, ClickUpProperties properties, Clock clock) {
         this.jsonMapper = jsonMapper;
+        // Chat endpoints only exist in API v3; same host, different version prefix.
+        this.v3BaseUrl = properties.apiBaseUrl().replaceAll("/v2/?$", "/v3");
         this.rateLimit = properties.rateLimit();
         this.clock = clock;
 
@@ -62,6 +65,13 @@ public class ClickUpHttp {
 
     public RestClient restClient() {
         return restClient;
+    }
+
+    /**
+     * Absolute base URL of ClickUp API v3 (used for Chat).
+     */
+    public String v3BaseUrl() {
+        return v3BaseUrl;
     }
 
     /**

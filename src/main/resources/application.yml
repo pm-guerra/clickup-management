@@ -58,6 +58,25 @@ app:
       enabled: ${EVENT_SCHEDULER_ENABLED:true}
       interval: 60s
 
+  # Hourly audit of tasks changed since the previous run (see AuditJob). Sends a ClickUp DM only for new issues.
+  audit:
+    enabled: true
+    initial-lookback: 7d
+    overlap: 5m
+    api-pacing: 1s
+    max-pages: 20
+    # Empty = whole Workspace
+    list-ids: []
+    notify-user-id: ${AUDIT_NOTIFY_USER_ID:}
+    scheduler:
+      # Local in-process trigger; on Cloud Run, Cloud Scheduler calls POST /admin/audit/run hourly.
+      enabled: ${AUDIT_SCHEDULER_ENABLED:false}
+    rules:
+      stream-task-status:
+        enabled: true
+        parent-types: [Story, Bug, Change]
+        allowed-statuses: [to do, in progress, review, complete, waiting info]
+
 clickup:
   client-id: ${CLICKUP_CLIENT_ID}
   client-secret: ${CLICKUP_CLIENT_SECRET}

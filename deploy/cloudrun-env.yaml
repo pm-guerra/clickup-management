@@ -11,3 +11,6 @@ SPRING_DATASOURCE_USERNAME: clickup
 SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "5"
 # Retries are triggered by Cloud Scheduler (CPU is throttled between requests on Cloud Run)
 EVENT_SCHEDULER_ENABLED: "false"
+# Hourly audit report goes to this ClickUp user as a DM (Pedro); triggered by Cloud Scheduler
+AUDIT_NOTIFY_USER_ID: "100796657"
+AUDIT_SCHEDULER_ENABLED: "false"

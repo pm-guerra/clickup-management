@@ -126,6 +126,22 @@ the "Bug" custom task type), and copies the fields configured in `CLICKUP_CUSTOM
 events, which nothing listens to. Writes are also skipped when the child already has the value, and idempotency records stop
 duplicate deliveries. If you add a handler for `taskUpdated`, make it ignore history items for fields it manages.
 
+## Hourly audit (`audit` package)
+
+Cloud Scheduler calls `POST /admin/audit/run` every hour. The job asks ClickUp for the tasks updated since the
+previous run (stored in `audit_state`, with a 5-minute overlap), checks each against every enabled `AuditRule`, and
+records findings in `audit_violation` (one row per rule and task). New findings are sent as a ClickUp Chat DM to
+`AUDIT_NOTIFY_USER_ID`; nothing is sent when there's nothing new. A finding is reported once and resolved when a
+later run sees the task complying (a fix changes the task, so it's re-checked). `GET /admin/audit/violations` lists
+the open ones.
+
+Rules (configured in `app.audit.rules`):
+- `stream-task-status`: a stream task (direct subtask of a Story/Bug/Change) must be in to do / in progress /
+  review / complete / waiting info.
+
+To add a rule: implement `AuditRule` as a Spring component (return a message when the task breaks the rule, empty
+otherwise) and add it to the ClickUp "Automation Rules" doc.
+
 ## Configuration
 
 All config is via environment variables (see [.env.example](.env.example)). For local runs, put them in a
