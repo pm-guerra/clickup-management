@@ -7,8 +7,9 @@ import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 /**
- * Stream tasks (direct subtasks of a Story/Bug/Change) may only be in to do / in progress / review / complete /
- * waiting info. E.g. a stream task in "ready for testing" is a violation: testing happens on the parent.
+ * Stream tasks (Task-type subtasks of a Story/Bug/Change, e.g. "Mobile | ...") may only be in to do / in progress /
+ * review / complete / waiting info. E.g. a stream task in "ready for testing" is a violation: testing happens on the
+ * parent. Bugs/Changes/Stories nested under another task are not stream tasks and aren't checked.
  */
 @Component
 public class StreamTaskStatusRule implements AuditRule {
@@ -32,6 +33,10 @@ public class StreamTaskStatusRule implements AuditRule {
     @Override
     public Optional<String> check(Task task, AuditContext context) {
         if (task.parent() == null || task.status() == null || task.status().status() == null) {
+            return Optional.empty();
+        }
+        boolean streamType = context.typeName(task).map(t -> contains(config.streamTypesOrEmpty(), t)).orElse(false);
+        if (!streamType) {
             return Optional.empty();
         }
         Task parent = context.task(task.parent());

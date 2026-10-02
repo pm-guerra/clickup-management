@@ -14,7 +14,8 @@ import org.springframework.validation.annotation.Validated;
  * @param apiPacing       minimum time between ClickUp calls made by rules (task lookups)
  * @param maxPages        safety cap on result pages (100 tasks each) per run
  * @param listIds         only audit these lists; empty for the whole Workspace
- * @param notifyUserId    ClickUp user id that gets the report as a direct message; blank to only log
+ * @param notifyChannelId ClickUp Chat channel the report is posted to; takes precedence over {@code notifyUserId}
+ * @param notifyUserId    ClickUp user id that gets the report as a direct message when no channel is set
  * @param scheduler       in-process hourly trigger for local runs; on Cloud Run, Cloud Scheduler calls the endpoint
  * @param rules           per-rule settings
  */
@@ -27,6 +28,7 @@ public record AuditProperties(
         @NotNull Duration apiPacing,
         int maxPages,
         List<String> listIds,
+        String notifyChannelId,
         String notifyUserId,
         @Valid @NotNull Scheduler scheduler,
         @Valid @NotNull Rules rules
@@ -43,13 +45,22 @@ public record AuditProperties(
     }
 
     /**
-     * @param parentTypes     subtasks of these task types are "stream tasks"
+     * A stream task is a subtask whose parent is one of {@code parentTypes} and whose own type is one of
+     * {@code streamTypes} (the default "Task"). Bugs/Changes/Stories nested under a parent aren't stream tasks.
+     *
+     * @param parentTypes     task types that have stream tasks
+     * @param streamTypes     task types a stream task has
      * @param allowedStatuses statuses a stream task may be in
      */
-    public record StreamTaskStatus(boolean enabled, List<String> parentTypes, List<String> allowedStatuses) {
+    public record StreamTaskStatus(boolean enabled, List<String> parentTypes, List<String> streamTypes,
+                                   List<String> allowedStatuses) {
 
         public List<String> parentTypesOrEmpty() {
             return parentTypes == null ? List.of() : parentTypes;
+        }
+
+        public List<String> streamTypesOrEmpty() {
+            return streamTypes == null ? List.of() : streamTypes;
         }
 
         public List<String> allowedStatusesOrEmpty() {

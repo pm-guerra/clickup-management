@@ -15,6 +15,7 @@ app:
     local-encryption-key: AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
   audit:
     api-pacing: 0s
+    notify-channel-id: ""
     notify-user-id: ""
     scheduler:
       enabled: false

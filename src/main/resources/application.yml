@@ -67,6 +67,8 @@ app:
     max-pages: 20
     # Empty = whole Workspace
     list-ids: []
+    # Report goes to this ClickUp Chat channel; or, if empty, as a DM to notify-user-id
+    notify-channel-id: ${AUDIT_NOTIFY_CHANNEL_ID:}
     notify-user-id: ${AUDIT_NOTIFY_USER_ID:}
     scheduler:
       # Local in-process trigger; on Cloud Run, Cloud Scheduler calls POST /admin/audit/run hourly.
@@ -75,6 +77,8 @@ app:
       stream-task-status:
         enabled: true
         parent-types: [Story, Bug, Change]
+        # Only Task-type subtasks are stream tasks; nested Bugs/Changes/Stories are not
+        stream-types: [Task]
         allowed-statuses: [to do, in progress, review, complete, waiting info]
 
 clickup:

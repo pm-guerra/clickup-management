@@ -27,6 +27,15 @@ public class AuditController {
         return job.run();
     }
 
+    /**
+     * Clears all findings and rewinds the window (e.g. after changing a rule's definition). The next run re-checks the
+     * initial lookback and reports what's still wrong.
+     */
+    @PostMapping("/reset")
+    public void reset() {
+        repository.reset();
+    }
+
     @GetMapping("/violations")
     public List<ViolationView> openViolations() {
         return repository.findOpen().stream().map(ViolationView::of).toList();

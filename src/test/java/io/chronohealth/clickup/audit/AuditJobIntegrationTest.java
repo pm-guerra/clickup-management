@@ -32,10 +32,11 @@ import org.springframework.test.context.TestPropertySource;
 
 @SpringBootTest
 @ActiveProfiles("test")
-@TestPropertySource(properties = "app.audit.notify-user-id=42")
+@TestPropertySource(properties = {"app.audit.notify-channel-id=chan-1", "app.audit.notify-user-id=42"})
 class AuditJobIntegrationTest {
 
     private static final long BUG = 1001L;
+    private static final long STORY = 1004L;
 
     @Autowired
     private AuditJob job;
@@ -53,8 +54,8 @@ class AuditJobIntegrationTest {
         jdbc.sql("delete from audit_violation").update();
         jdbc.sql("delete from audit_state").update();
         when(factory.forWorkspace(anyString())).thenReturn(client);
-        when(client.getCustomTaskTypes(anyString())).thenReturn(List.of(new CustomTaskType(BUG, "Bug")));
-        when(client.getOrCreateDirectMessage(anyString(), eq("42"))).thenReturn("dm-1");
+        when(client.getCustomTaskTypes(anyString())).thenReturn(List.of(
+                new CustomTaskType(BUG, "Bug"), new CustomTaskType(STORY, "Story")));
     }
 
     @Test
@@ -65,7 +66,7 @@ class AuditJobIntegrationTest {
 
         assertThat(job.run().newIssues()).isEqualTo(1);
         ArgumentCaptor<String> message = ArgumentCaptor.forClass(String.class);
-        verify(client).sendChatMessage(anyString(), eq("dm-1"), message.capture());
+        verify(client).sendChatMessage(anyString(), eq("chan-1"), message.capture());
         assertThat(message.getValue())
                 .contains("1 new issue")
                 .contains("[Mobile | Login bug](https://app.clickup.com/t/s1)")
@@ -90,6 +91,15 @@ class AuditJobIntegrationTest {
 
         assertThat(job.run().tasksChecked()).isEqualTo(3);
         verify(client, never()).sendChatMessage(anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void bugsAndChangesNestedUnderAStoryAreNotStreamTasks() {
+        // A Bug filed as a subtask of a Story, waiting in "in lobby": valid, not a stream task.
+        changed(task("story", "Sign-up story", null, STORY, "in progress"),
+                task("nested", "(web) Sign-up error", "story", BUG, "in lobby"));
+
+        assertThat(job.run().newIssues()).isZero();
     }
 
     @Test

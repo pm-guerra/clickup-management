@@ -136,8 +136,11 @@ later run sees the task complying (a fix changes the task, so it's re-checked). 
 the open ones.
 
 Rules (configured in `app.audit.rules`):
-- `stream-task-status`: a stream task (direct subtask of a Story/Bug/Change) must be in to do / in progress /
-  review / complete / waiting info.
+- `stream-task-status`: a stream task (Task-type subtask of a Story/Bug/Change) must be in to do / in progress /
+  review / complete / waiting info. Bugs/Changes/Stories nested under another task are not stream tasks.
+
+The report goes to the ClickUp Chat channel `AUDIT_NOTIFY_CHANNEL_ID` (or a DM to `AUDIT_NOTIFY_USER_ID`). After
+changing a rule's definition, `POST /admin/audit/reset` clears findings and rewinds the window.
 
 To add a rule: implement `AuditRule` as a Spring component (return a message when the task breaks the rule, empty
 otherwise) and add it to the ClickUp "Automation Rules" doc.

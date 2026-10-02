@@ -108,6 +108,15 @@ public class AuditRepository {
                 .list();
     }
 
+    /**
+     * Forgets all findings and the last-checked position, so the next run re-checks from the initial lookback.
+     */
+    @Transactional
+    public void reset() {
+        jdbc.sql("delete from audit_violation").update();
+        jdbc.sql("delete from audit_state").update();
+    }
+
     public void markNotified(List<Long> ids) {
         if (ids.isEmpty()) {
             return;

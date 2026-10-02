@@ -9,7 +9,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
- * Sends new findings as a ClickUp Chat direct message to {@code app.audit.notify-user-id}.
+ * Posts new findings to the ClickUp Chat channel {@code app.audit.notify-channel-id}, or as a direct message to
+ * {@code app.audit.notify-user-id} when no channel is configured.
  * The message carries task names and links, so it's sent through ClickUp only and never logged.
  */
 @Component
@@ -31,16 +32,29 @@ public class AuditNotifier {
      * @param taskNames names of tasks seen in this run, used as link text when available
      */
     public void send(ClickUpClient client, String workspaceId, List<Violation> violations, Map<String, String> taskNames) {
-        String userId = properties.notifyUserId();
-        if (userId == null || userId.isBlank()) {
-            log.info("Audit found {} new issue(s); no notify-user-id configured, not sending a message", violations.size());
-            return;
+        if (channelId == null) {
+            channelId = resolveChannel(client, workspaceId);
         }
         if (channelId == null) {
-            channelId = client.getOrCreateDirectMessage(workspaceId, userId);
+            log.info("Audit found {} new issue(s); no notify channel or user configured", violations.size());
+            return;
         }
         client.sendChatMessage(workspaceId, channelId, format(violations, taskNames));
         log.info("Sent audit report with {} new issue(s)", violations.size());
+    }
+
+    private String resolveChannel(ClickUpClient client, String workspaceId) {
+        if (!isBlank(properties.notifyChannelId())) {
+            return properties.notifyChannelId();
+        }
+        if (!isBlank(properties.notifyUserId())) {
+            return client.getOrCreateDirectMessage(workspaceId, properties.notifyUserId());
+        }
+        return null;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     static String format(List<Violation> violations, Map<String, String> taskNames) {
