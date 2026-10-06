@@ -33,12 +33,14 @@ public class RetryPolicy {
     }
 
     /**
-     * Retrying won't fix ClickUp rejecting the request (4xx other than 408/429) or a payload we can't parse.
-     * A missing OAuth token is retryable: it recovers once someone re-authorizes.
+     * Retrying won't fix ClickUp rejecting the request (4xx other than 401/403/408/429) or a payload we can't parse.
+     * Missing access (401/403, e.g. the app's user lacks edit permission) and a missing OAuth token are retryable:
+     * they recover once someone fixes permissions or re-authorizes.
      */
     public boolean isRetryable(Throwable error) {
         return switch (error) {
-            case ClickUpApiException e -> e.statusCode() >= 500 || e.statusCode() == 408 || e.statusCode() == 429;
+            case ClickUpApiException e -> e.statusCode() >= 500 || e.statusCode() == 401 || e.statusCode() == 403
+                    || e.statusCode() == 408 || e.statusCode() == 429;
             case ClickUpClientFactory.WorkspaceNotAuthorizedException _ -> true;
             case JacksonException _ -> false;
             default -> true;

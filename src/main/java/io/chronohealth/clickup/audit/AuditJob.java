@@ -1,6 +1,7 @@
 package io.chronohealth.clickup.audit;
 
 import io.chronohealth.clickup.audit.AuditRepository.Violation;
+import io.chronohealth.clickup.client.ClickUpApiException;
 import io.chronohealth.clickup.client.ClickUpClient;
 import io.chronohealth.clickup.client.ClickUpClient.TaskPage;
 import io.chronohealth.clickup.client.ClickUpClientFactory;
@@ -94,14 +95,20 @@ public class AuditJob {
 
         Map<String, String> taskNames = new HashMap<>();
         int checked = 0;
+        int skippedChecks = 0;
         for (int page = 0; page < properties.maxPages(); page++) {
             TaskPage result = client.getTasksUpdatedSince(workspaceId, from.toInstant(), properties.listIdsOrEmpty(), page);
             result.tasksOrEmpty().forEach(context::remember);
             for (Task task : result.tasksOrEmpty()) {
                 taskNames.put(task.id(), task.name() == null ? task.id() : task.name());
                 for (AuditRule rule : active) {
-                    Optional<String> finding = rule.check(task, context);
-                    repository.reconcile(rule.id(), task.id(), finding);
+                    try {
+                        repository.reconcile(rule.id(), task.id(), rule.check(task, context));
+                    } catch (ClickUpApiException e) {
+                        // E.g. a related task was deleted or isn't visible: skip this check, keep the run going.
+                        skippedChecks++;
+                        log.warn("Audit rule {} skipped task {}: {}", rule.id(), task.id(), e.getMessage());
+                    }
                 }
                 checked++;
             }
@@ -122,8 +129,8 @@ public class AuditJob {
                 log.warn("Audit report not sent ({}); will retry with the next run", e.getClass().getSimpleName());
             }
         }
-        log.info("Audit: {} task(s) checked since {}, {} wrong change(s), {} new issue(s), {} open in total", checked,
-                from, wrongChanges, fresh.size(), repository.findOpen().size());
+        log.info("Audit: {} task(s) checked since {} ({} check(s) skipped), {} wrong change(s), {} new issue(s), "
+                + "{} open in total", checked, from, skippedChecks, wrongChanges, fresh.size(), repository.findOpen().size());
         return new RunResult(false, checked, fresh.size());
     }
 
@@ -146,14 +153,20 @@ public class AuditJob {
                 if (!rule.eventTypes().contains(event.type())) {
                     continue;
                 }
-                List<String> findings = rule.check(event, context);
-                for (int i = 0; i < findings.size(); i++) {
-                    repository.recordEventFinding(rule.id(), stored.id(), i, event.taskId(), findings.get(i));
-                    found++;
-                }
-                if (!findings.isEmpty()) {
-                    Task task = context.task(event.taskId());
-                    taskNames.putIfAbsent(task.id(), task.name() == null ? task.id() : task.name());
+                try {
+                    List<String> findings = rule.check(event, context);
+                    for (int i = 0; i < findings.size(); i++) {
+                        repository.recordEventFinding(rule.id(), stored.id(), i, event.taskId(), findings.get(i));
+                        found++;
+                    }
+                    if (!findings.isEmpty()) {
+                        Task task = context.task(event.taskId());
+                        taskNames.putIfAbsent(task.id(), task.name() == null ? task.id() : task.name());
+                    }
+                } catch (ClickUpApiException e) {
+                    // E.g. the task was deleted since: nothing to check.
+                    log.warn("Audit rule {} skipped event {} (task {}): {}", rule.id(), stored.id(), event.taskId(),
+                            e.getMessage());
                 }
             }
         }

@@ -87,6 +87,16 @@ class AuditJobIntegrationTest {
     }
 
     @Test
+    void aTaskThatCanNoLongerBeReadDoesNotStopTheRun() {
+        when(client.getTask("gone")).thenThrow(new io.chronohealth.clickup.client.ClickUpApiException(404, "ITEM_013"));
+        changed(task("s1", "Sub of deleted parent", "gone", null, "ready for testing"),
+                task("bug", "Login bug", null, BUG, "in progress"),
+                task("s2", "Mobile | Login bug", "bug", null, "ready for testing"));
+
+        assertThat(job.run().newIssues()).isEqualTo(1);
+    }
+
+    @Test
     void sendsNothingWhenEverythingIsAligned() {
         changed(task("bug", "Login bug", null, BUG, "in progress"),
                 task("s1", "Mobile | Login bug", "bug", null, "in progress"),

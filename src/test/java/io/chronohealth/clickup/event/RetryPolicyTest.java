@@ -29,6 +29,8 @@ class RetryPolicyTest {
         assertThat(policy.isRetryable(new ClickUpRateLimitedException(null))).isTrue();
         assertThat(policy.isRetryable(new ClickUpClientFactory.WorkspaceNotAuthorizedException("1"))).isTrue();
         assertThat(policy.isRetryable(new IllegalStateException())).isTrue();
+        assertThat(policy.isRetryable(new ClickUpApiException(401, "ACCESS_081"))).isTrue();
+        assertThat(policy.isRetryable(new ClickUpApiException(403, "X"))).isTrue();
         assertThat(policy.isRetryable(new ClickUpApiException(400, "X"))).isFalse();
         assertThat(policy.isRetryable(new ClickUpApiException(404, "X"))).isFalse();
     }
