@@ -72,6 +72,8 @@ app:
     notify-user-id: ${AUDIT_NOTIFY_USER_ID:}
     # Who's who for the permission rules (ClickUp user ids). Anyone not listed has no permissions.
     people:
+      # The app itself acts as Octo bot (it authorized the OAuth app); its automatic changes are always allowed
+      - { id: "106723346", name: Octo bot, role: admin }
       - { id: "100796657", name: Pedro, role: admin }
       - { id: "106501885", name: José, role: admin }
       - { id: "106791322", name: Martim, role: tester }
