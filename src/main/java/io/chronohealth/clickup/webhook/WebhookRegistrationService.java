@@ -87,10 +87,15 @@ public class WebhookRegistrationService {
             client.deleteWebhook(webhookId);
             log.info("Deleted ClickUp webhook {}", webhookId);
         } catch (ClickUpApiException e) {
-            if (e.statusCode() != 404) {
+            if (e.statusCode() == 404) {
+                log.info("ClickUp webhook {} was already gone", webhookId);
+            } else if (e.statusCode() == 401 || e.statusCode() == 403) {
+                // E.g. the app was re-authorized by a different user, who can't delete the old user's webhook.
+                log.warn("Not allowed to delete ClickUp webhook {} (status {}); delete it as its owner", webhookId,
+                        e.statusCode());
+            } else {
                 throw e;
             }
-            log.info("ClickUp webhook {} was already gone", webhookId);
         }
     }
 
