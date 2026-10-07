@@ -7,8 +7,8 @@ import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 /**
- * Stream tasks (Task-type subtasks of a Story/Bug/Change, e.g. "Mobile | ...") may only be in to do / in progress /
- * review / complete / waiting info. E.g. a stream task in "ready for testing" is a violation: testing happens on the
+ * Stream tasks (Task-type subtasks of a Story/Bug/Change, e.g. "Mobile | ...") may only be in the configured statuses
+ * (pending, to do, in progress, review, complete, waiting info). E.g. "ready for testing" is a violation: testing happens on the
  * parent. Bugs/Changes/Stories nested under another task are not stream tasks and aren't checked.
  */
 @Component

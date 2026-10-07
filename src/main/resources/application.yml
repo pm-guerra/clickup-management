@@ -99,7 +99,7 @@ app:
         parent-types: [Story, Bug, Change]
         # Only Task-type subtasks are stream tasks; nested Bugs/Changes/Stories are not
         stream-types: [Task]
-        allowed-statuses: [to do, in progress, review, complete, waiting info]
+        allowed-statuses: [pending, to do, in progress, review, complete, waiting info]
       # Main tasks: testers/admins move them; stream tasks: their stream's devs/admins (checked on each change)
       status-move:
         enabled: true
