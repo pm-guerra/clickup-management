@@ -19,6 +19,7 @@ import tools.jackson.databind.JsonNode;
  *   <li>stream tasks and the sub-subtasks inside them: devs of that stream and admins;</li>
  *   <li>other tasks: anyone.</li>
  * </ul>
+ * A task's initial status when it's created (no previous status) isn't a move and isn't checked.
  */
 @Component
 public class StatusMoveRule implements AuditEventRule {
@@ -52,7 +53,10 @@ public class StatusMoveRule implements AuditEventRule {
 
     @Override
     public List<String> check(ClickUpEvent event, AuditContext context) {
-        List<HistoryItem> moves = event.historyItems().stream().filter(i -> STATUS_FIELD.equals(i.field())).toList();
+        List<HistoryItem> moves = event.historyItems().stream()
+                .filter(i -> STATUS_FIELD.equals(i.field()))
+                .filter(i -> isPresent(i.before()))
+                .toList();
         if (moves.isEmpty()) {
             return List.of();
         }
@@ -89,6 +93,11 @@ public class StatusMoveRule implements AuditEventRule {
         return kind.kind() == Kind.MAIN
                 ? "Only testers and admins may move Stories/Bugs/Changes/Epics."
                 : "Only " + kind.stream().map(s -> s + " devs").orElse("devs") + " and admins may move this stream task.";
+    }
+
+    private static boolean isPresent(JsonNode node) {
+        return node != null && !node.isNull() && !node.isMissingNode()
+                && !(node.isObject() && node.path("status").isMissingNode());
     }
 
     private static String status(JsonNode node) {

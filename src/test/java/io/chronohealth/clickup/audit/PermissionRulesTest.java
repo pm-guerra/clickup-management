@@ -77,6 +77,15 @@ class PermissionRulesTest {
     }
 
     @Test
+    void initialStatusOnCreationIsNotAMove() {
+        HistoryItem created = new HistoryItem("h", "1", null, "status", null, new User(VIVEK), null,
+                MAPPER.readTree("{\"status\":\"pending\"}"));
+        ClickUpEvent event = new ClickUpEvent("k", "wh", "ws", "taskStatusUpdated", "legacy", List.of(created));
+
+        assertThat(statusRule.check(event, context)).isEmpty();
+    }
+
+    @Test
     void otherTasksAndUnknownPeople() {
         assertThat(statusRule.check(move("plain", LUIS), context)).isEmpty();
         assertThat(statusRule.check(move("bug", STRANGER), context)).singleElement().asString().contains("(no role)");

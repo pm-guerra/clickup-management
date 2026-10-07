@@ -151,6 +151,10 @@ public class AuditRepository {
         jdbc.sql("delete from audit_state").update();
     }
 
+    public boolean delete(long id) {
+        return jdbc.sql("delete from audit_violation where id = :id").param("id", id).update() == 1;
+    }
+
     public void markNotified(List<Long> ids) {
         if (ids.isEmpty()) {
             return;

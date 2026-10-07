@@ -2,7 +2,10 @@ package io.chronohealth.clickup.audit;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -36,16 +39,24 @@ public class AuditController {
         repository.reset();
     }
 
+    /**
+     * Drops one finding (e.g. a false positive) before or after it's reported.
+     */
+    @DeleteMapping("/violations/{id}")
+    public ResponseEntity<Void> deleteViolation(@PathVariable long id) {
+        return repository.delete(id) ? ResponseEntity.noContent().build() : ResponseEntity.notFound().build();
+    }
+
     @GetMapping("/violations")
     public List<ViolationView> openViolations() {
         return repository.findOpen().stream().map(ViolationView::of).toList();
     }
 
-    public record ViolationView(String ruleId, String taskId, String details, OffsetDateTime firstSeenAt,
+    public record ViolationView(long id, String ruleId, String taskId, String details, OffsetDateTime firstSeenAt,
                                 OffsetDateTime lastSeenAt, boolean notified) {
 
         static ViolationView of(AuditRepository.Violation v) {
-            return new ViolationView(v.ruleId(), v.taskId(), v.details(), v.firstSeenAt(), v.lastSeenAt(),
+            return new ViolationView(v.id(), v.ruleId(), v.taskId(), v.details(), v.firstSeenAt(), v.lastSeenAt(),
                     v.notifiedAt() != null);
         }
     }
