@@ -157,6 +157,29 @@ public class ClickUpClient {
                 .retrieve().toBodilessEntity());
     }
 
+    public void addTag(String taskId, String tag) {
+        http.run("addTag", () -> api().post().uri("/task/{taskId}/tag/{tag}", taskId, tag)
+                .retrieve().toBodilessEntity());
+    }
+
+    public void removeTag(String taskId, String tag) {
+        http.run("removeTag", () -> api().delete().uri("/task/{taskId}/tag/{tag}", taskId, tag)
+                .retrieve().toBodilessEntity());
+    }
+
+    /**
+     * Adds a comment that @-mentions {@code mentionUserId} (who gets notified) followed by {@code text}.
+     */
+    public void addCommentMentioning(String taskId, long mentionUserId, String text) {
+        List<Object> parts = List.of(
+                java.util.Map.of("type", "tag", "user", java.util.Map.of("id", mentionUserId)),
+                java.util.Map.of("text", " " + text));
+        http.run("addComment", () -> api().post().uri("/task/{taskId}/comment", taskId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(java.util.Map.of("comment", parts, "notify_all", false))
+                .retrieve().toBodilessEntity());
+    }
+
     public Webhook createWebhook(String workspaceId, String endpoint, List<String> events) {
         return http.execute("createWebhook", () -> api().post().uri("/team/{workspaceId}/webhook", workspaceId)
                 .contentType(MediaType.APPLICATION_JSON)

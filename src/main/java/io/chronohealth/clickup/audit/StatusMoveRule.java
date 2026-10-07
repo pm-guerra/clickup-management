@@ -1,6 +1,5 @@
 package io.chronohealth.clickup.audit;
 
-import io.chronohealth.clickup.audit.People.Role;
 import io.chronohealth.clickup.audit.TaskKinds.Classification;
 import io.chronohealth.clickup.audit.TaskKinds.Kind;
 import io.chronohealth.clickup.client.dto.Task;
@@ -8,7 +7,6 @@ import io.chronohealth.clickup.webhook.ClickUpEvent;
 import io.chronohealth.clickup.webhook.ClickUpWebhookPayload.HistoryItem;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
@@ -28,11 +26,13 @@ public class StatusMoveRule implements AuditEventRule {
 
     private final People people;
     private final TaskKinds kinds;
+    private final Permissions permissions;
     private final AuditProperties.Toggle config;
 
-    public StatusMoveRule(People people, TaskKinds kinds, AuditProperties properties) {
+    public StatusMoveRule(People people, TaskKinds kinds, Permissions permissions, AuditProperties properties) {
         this.people = people;
         this.kinds = kinds;
+        this.permissions = permissions;
         this.config = properties.rules().statusMove();
     }
 
@@ -68,39 +68,22 @@ public class StatusMoveRule implements AuditEventRule {
         List<String> findings = new ArrayList<>();
         for (HistoryItem move : moves) {
             Long userId = move.user() == null ? null : move.user().id();
-            if (!allowed(userId, kind)) {
+            if (!permissions.canMoveStatus(userId, kind)) {
                 findings.add(people.describe(userId) + " moved it from '" + status(move.before()) + "' to '"
-                        + status(move.after()) + "'. " + whoMay(kind));
+                        + status(move.after()) + "'. " + permissions.whoMayMove(kind)
+                        + (people.isEnforced(userId) ? " Undone automatically." : ""));
             }
         }
         return findings;
     }
 
-    private boolean allowed(Long userId, Classification kind) {
-        Optional<Role> role = people.role(userId);
-        if (role.isEmpty()) {
-            return false;
-        }
-        return switch (role.get()) {
-            case ADMIN -> true;
-            case TESTER -> kind.kind() == Kind.MAIN;
-            case DEV -> kind.kind() == Kind.STREAM
-                    && (kind.stream().isEmpty() || kind.stream().equals(people.stream(userId)));
-        };
-    }
 
-    private static String whoMay(Classification kind) {
-        return kind.kind() == Kind.MAIN
-                ? "Only testers and admins may move Stories/Bugs/Changes/Epics."
-                : "Only " + kind.stream().map(s -> s + " devs").orElse("devs") + " and admins may move this stream task.";
-    }
-
-    private static boolean isPresent(JsonNode node) {
+    static boolean isPresent(JsonNode node) {
         return node != null && !node.isNull() && !node.isMissingNode()
                 && !(node.isObject() && node.path("status").isMissingNode());
     }
 
-    private static String status(JsonNode node) {
+    static String status(JsonNode node) {
         if (node == null || node.isNull() || node.isMissingNode()) {
             return "?";
         }

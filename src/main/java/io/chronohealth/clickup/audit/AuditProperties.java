@@ -61,9 +61,15 @@ public record AuditProperties(
      * @param id     ClickUp user id
      * @param name   display name used in reports
      * @param role   admin, tester or dev
-     * @param stream for devs: backend, web or mobile
+     * @param stream  for devs: backend, web or mobile
+     * @param enforce their forbidden changes are undone automatically (otherwise only reported)
      */
-    public record Person(@NotBlank String id, @NotBlank String name, @NotBlank String role, String stream) {
+    public record Person(@NotBlank String id, @NotBlank String name, @NotBlank String role, String stream,
+                         Boolean enforce) {
+
+        public boolean isEnforced() {
+            return Boolean.TRUE.equals(enforce);
+        }
     }
 
     public record Scheduler(boolean enabled) {

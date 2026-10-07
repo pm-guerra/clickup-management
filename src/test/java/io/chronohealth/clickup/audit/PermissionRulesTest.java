@@ -35,8 +35,9 @@ class PermissionRulesTest {
     private final AuditProperties properties = properties();
     private final People people = new People(properties);
     private final TaskKinds kinds = new TaskKinds(properties);
-    private final StatusMoveRule statusRule = new StatusMoveRule(people, kinds, properties);
-    private final StreamTagChangeRule tagRule = new StreamTagChangeRule(people, kinds, properties);
+    private final Permissions permissions = new Permissions(people);
+    private final StatusMoveRule statusRule = new StatusMoveRule(people, kinds, permissions, properties);
+    private final StreamTagChangeRule tagRule = new StreamTagChangeRule(people, kinds, permissions, properties);
     private AuditContext context;
 
     @BeforeEach
@@ -71,7 +72,10 @@ class PermissionRulesTest {
         assertThat(statusRule.check(move("legacy", LUIS), context)).isEmpty();
 
         assertThat(statusRule.check(move("mobile", LUIS), context)).singleElement().asString()
-                .contains("Only mobile devs and admins");
+                .contains("Only mobile devs and admins").doesNotContain("Undone");
+        // Vivek is enforced: the report says it was undone.
+        assertThat(statusRule.check(move("bug", VIVEK), context)).singleElement().asString()
+                .endsWith("Undone automatically.");
         assertThat(statusRule.check(move("subsub", MARTIM), context)).hasSize(1);
         assertThat(statusRule.check(move("legacy", VIVEK), context)).hasSize(1);
     }
@@ -122,10 +126,10 @@ class PermissionRulesTest {
     static AuditProperties properties() {
         return new AuditProperties(true, Duration.ofDays(7), Duration.ofMinutes(5), Duration.ZERO, 5, List.of(),
                 "", "",
-                List.of(new AuditProperties.Person("100796657", "Pedro", "admin", null),
-                        new AuditProperties.Person("106791322", "Martim", "tester", null),
-                        new AuditProperties.Person("112510284", "Luís", "dev", "backend"),
-                        new AuditProperties.Person("278564675", "Vivek", "dev", "mobile")),
+                List.of(new AuditProperties.Person("100796657", "Pedro", "admin", null, null),
+                        new AuditProperties.Person("106791322", "Martim", "tester", null, null),
+                        new AuditProperties.Person("112510284", "Luís", "dev", "backend", null),
+                        new AuditProperties.Person("278564675", "Vivek", "dev", "mobile", true)),
                 List.of("Story", "Bug", "Change", "Epic"), List.of("backend", "web", "mobile"),
                 new AuditProperties.Scheduler(false),
                 new AuditProperties.Rules(

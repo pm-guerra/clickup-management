@@ -32,6 +32,14 @@ public class People {
         return person(userId).map(Person::stream).map(s -> s.trim().toLowerCase(Locale.ROOT));
     }
 
+    public boolean isEnforced(Long userId) {
+        return person(userId).map(Person::isEnforced).orElse(false);
+    }
+
+    public Optional<String> name(Long userId) {
+        return person(userId).map(Person::name);
+    }
+
     public String describe(Long userId) {
         return person(userId)
                 .map(p -> p.name() + " (" + (p.stream() == null || p.stream().isBlank()

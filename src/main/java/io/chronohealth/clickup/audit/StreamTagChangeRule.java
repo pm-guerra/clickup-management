@@ -1,6 +1,5 @@
 package io.chronohealth.clickup.audit;
 
-import io.chronohealth.clickup.audit.People.Role;
 import io.chronohealth.clickup.webhook.ClickUpEvent;
 import io.chronohealth.clickup.webhook.ClickUpWebhookPayload.HistoryItem;
 import java.util.ArrayList;
@@ -14,16 +13,18 @@ import tools.jackson.databind.JsonNode;
 @Component
 public class StreamTagChangeRule implements AuditEventRule {
 
-    private static final String ADDED = "tag";
-    private static final String REMOVED = "tag_removed";
+    static final String ADDED = "tag";
+    static final String REMOVED = "tag_removed";
 
     private final People people;
     private final TaskKinds kinds;
+    private final Permissions permissions;
     private final AuditProperties.Toggle config;
 
-    public StreamTagChangeRule(People people, TaskKinds kinds, AuditProperties properties) {
+    public StreamTagChangeRule(People people, TaskKinds kinds, Permissions permissions, AuditProperties properties) {
         this.people = people;
         this.kinds = kinds;
+        this.permissions = permissions;
         this.config = properties.rules().streamTagChange();
     }
 
@@ -51,20 +52,30 @@ public class StreamTagChangeRule implements AuditEventRule {
                 continue;
             }
             Long userId = item.user() == null ? null : item.user().id();
-            if (people.role(userId).map(r -> r == Role.ADMIN).orElse(false)) {
+            if (permissions.canChangeStreamTags(userId)) {
                 continue;
             }
             // The changed tags are in "after"; for removals fall back to "before" if ClickUp sent them there.
-            List<String> tags = streamTags(item.after());
-            if (!added && tags.isEmpty()) {
-                tags = streamTags(item.before());
-            }
+            List<String> tags = changedStreamTags(item);
             for (String tag : tags) {
                 findings.add(people.describe(userId) + (added ? " added" : " removed") + " the '" + tag
-                        + "' tag. Only admins may add or remove stream tags.");
+                        + "' tag. " + permissions.whoMayTag()
+                        + (people.isEnforced(userId) ? " Undone automatically." : ""));
             }
         }
         return findings;
+    }
+
+    /**
+     * Stream tags added or removed by this history item. The changed tags are in "after"; for removals fall back to
+     * "before" if ClickUp sent them there.
+     */
+    List<String> changedStreamTags(HistoryItem item) {
+        List<String> tags = streamTags(item.after());
+        if (REMOVED.equals(item.field()) && tags.isEmpty()) {
+            tags = streamTags(item.before());
+        }
+        return tags;
     }
 
     private List<String> streamTags(JsonNode node) {

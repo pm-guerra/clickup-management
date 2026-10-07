@@ -79,9 +79,10 @@ app:
       - { id: "106791322", name: Martim, role: tester }
       - { id: "106744781", name: Katya, role: tester }
       - { id: "266659509", name: Catarina, role: tester }
-      - { id: "112510284", name: Luís, role: dev, stream: backend }
-      - { id: "278564675", name: Vivek, role: dev, stream: mobile }
-      - { id: "308507562", name: Sebastian, role: dev, stream: mobile }
+      # enforce: their forbidden changes are undone right away (others are only reported)
+      - { id: "112510284", name: Luís, role: dev, stream: backend, enforce: true }
+      - { id: "278564675", name: Vivek, role: dev, stream: mobile, enforce: true }
+      - { id: "308507562", name: Sebastian, role: dev, stream: mobile, enforce: true }
       - { id: "106773419", name: Nubelson, role: dev, stream: web }
       - { id: "106655756", name: Danylo, role: dev, stream: web }
     # Testers move these; devs move the stream tasks under Stories/Bugs/Changes
