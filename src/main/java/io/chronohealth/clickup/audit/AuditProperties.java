@@ -17,6 +17,7 @@ import org.springframework.validation.annotation.Validated;
  * @param listIds         only audit these lists; empty for the whole Workspace
  * @param notifyChannelId ClickUp Chat channel the report is posted to; takes precedence over {@code notifyUserId}
  * @param notifyUserId    ClickUp user id that gets the report as a direct message when no channel is set
+ * @param rulesDocUrl     link to the rules doc, added to reports and undo comments
  * @param people          who's who, for the permission rules (anyone not listed has no permissions)
  * @param mainTaskTypes   task types testers may move (Story, Bug, Change, Epic)
  * @param streams         stream names, also the stream tags (backend, web, mobile)
@@ -34,12 +35,17 @@ public record AuditProperties(
         List<String> listIds,
         String notifyChannelId,
         String notifyUserId,
+        String rulesDocUrl,
         List<@Valid Person> people,
         List<String> mainTaskTypes,
         List<String> streams,
         @Valid @NotNull Scheduler scheduler,
         @Valid @NotNull Rules rules
 ) {
+
+    public boolean hasRulesDoc() {
+        return rulesDocUrl != null && !rulesDocUrl.isBlank();
+    }
 
     public List<String> listIdsOrEmpty() {
         return listIds == null ? List.of() : listIds;

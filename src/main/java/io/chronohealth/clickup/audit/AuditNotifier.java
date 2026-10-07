@@ -39,7 +39,11 @@ public class AuditNotifier {
             log.info("Audit found {} new issue(s); no notify channel or user configured", violations.size());
             return;
         }
-        client.sendChatMessage(workspaceId, channelId, format(violations, taskNames));
+        String message = format(violations, taskNames);
+        if (properties.hasRulesDoc()) {
+            message += "\n\n📖 Rules: [How we work](" + properties.rulesDocUrl() + ")";
+        }
+        client.sendChatMessage(workspaceId, channelId, message);
         log.info("Sent audit report with {} new issue(s)", violations.size());
     }
 

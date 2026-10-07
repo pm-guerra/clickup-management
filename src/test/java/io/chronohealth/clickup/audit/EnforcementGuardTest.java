@@ -52,7 +52,7 @@ class EnforcementGuardTest {
         TaskKinds kinds = new TaskKinds(properties);
         Permissions permissions = new Permissions(people);
         guard = new EnforcementGuard(factory, new TaskTypeResolver(), kinds, people, permissions,
-                new StreamTagChangeRule(people, kinds, permissions, properties));
+                new StreamTagChangeRule(people, kinds, permissions, properties), properties);
         when(factory.forWorkspace("ws")).thenReturn(client);
         when(client.getCustomTaskTypes("ws")).thenReturn(List.of(new CustomTaskType(BUG, "Bug")));
         when(client.getTask("mobile")).thenReturn(task("mobile", "Mobile | Login", "bug", null, "review"));
@@ -67,6 +67,7 @@ class EnforcementGuardTest {
         assertThat(blocked).isTrue();
         verify(client).updateTask("bug", TaskUpdate.status("ready for testing"));
         verify(client).addCommentMentioning(eq("bug"), eq(VIVEK), contains("I moved it back to 'ready for testing'"));
+        verify(client).addCommentMentioning(eq("bug"), eq(VIVEK), contains("See the rules: https://docs.example/rules"));
     }
 
     @Test

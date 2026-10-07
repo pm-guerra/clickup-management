@@ -125,7 +125,7 @@ class PermissionRulesTest {
 
     static AuditProperties properties() {
         return new AuditProperties(true, Duration.ofDays(7), Duration.ofMinutes(5), Duration.ZERO, 5, List.of(),
-                "", "",
+                "", "", "https://docs.example/rules",
                 List.of(new AuditProperties.Person("100796657", "Pedro", "admin", null, null),
                         new AuditProperties.Person("106791322", "Martim", "tester", null, null),
                         new AuditProperties.Person("112510284", "Luís", "dev", "backend", null),

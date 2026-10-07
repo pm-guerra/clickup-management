@@ -36,15 +36,18 @@ public class EnforcementGuard implements EventGuard {
     private final People people;
     private final Permissions permissions;
     private final StreamTagChangeRule tagRule;
+    private final AuditProperties properties;
 
     public EnforcementGuard(ClickUpClientFactory clientFactory, TaskTypeResolver taskTypes, TaskKinds kinds,
-                            People people, Permissions permissions, StreamTagChangeRule tagRule) {
+                            People people, Permissions permissions, StreamTagChangeRule tagRule,
+                            AuditProperties properties) {
         this.clientFactory = clientFactory;
         this.taskTypes = taskTypes;
         this.kinds = kinds;
         this.people = people;
         this.permissions = permissions;
         this.tagRule = tagRule;
+        this.properties = properties;
     }
 
     @Override
@@ -123,8 +126,9 @@ public class EnforcementGuard implements EventGuard {
     }
 
     private void comment(ClickUpClient client, String taskId, Long userId, String text) {
+        String withLink = properties.hasRulesDoc() ? text + " See the rules: " + properties.rulesDocUrl() : text;
         try {
-            client.addCommentMentioning(taskId, userId, text);
+            client.addCommentMentioning(taskId, userId, withLink);
         } catch (RuntimeException e) {
             // The undo already happened; a missing comment isn't worth failing the event over.
             log.warn("Couldn't comment on task {} after undoing a change: {}", taskId, e.getClass().getSimpleName());

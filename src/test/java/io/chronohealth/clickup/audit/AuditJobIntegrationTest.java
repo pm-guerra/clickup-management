@@ -73,7 +73,8 @@ class AuditJobIntegrationTest {
         assertThat(message.getValue())
                 .contains("1 new issue")
                 .contains("[Mobile | Login bug](https://app.clickup.com/t/s1)")
-                .contains("'ready for testing'");
+                .contains("'ready for testing'")
+                .contains("📖 Rules: [How we work](https://app.clickup.com/");
 
         // Still wrong on the next run: not reported again.
         changed(parent, wrong);
