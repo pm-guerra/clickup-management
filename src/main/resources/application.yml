@@ -89,6 +89,8 @@ app:
       - { id: "106655756", name: Danylo, role: dev, stream: web }
     # Testers move these; devs move the stream tasks under Stories/Bugs/Changes
     main-task-types: [Story, Bug, Change, Epic]
+    # Devs may also move a main task into these statuses (moving it out again is for testers/admins)
+    dev-main-task-statuses: [waiting info]
     streams: [backend, web, mobile]
     scheduler:
       # Local in-process trigger; on Cloud Run, Cloud Scheduler calls POST /admin/audit/run hourly.

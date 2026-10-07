@@ -35,7 +35,7 @@ class PermissionRulesTest {
     private final AuditProperties properties = properties();
     private final People people = new People(properties);
     private final TaskKinds kinds = new TaskKinds(properties);
-    private final Permissions permissions = new Permissions(people);
+    private final Permissions permissions = new Permissions(people, properties);
     private final StatusMoveRule statusRule = new StatusMoveRule(people, kinds, permissions, properties);
     private final StreamTagChangeRule tagRule = new StreamTagChangeRule(people, kinds, permissions, properties);
     private AuditContext context;
@@ -63,6 +63,15 @@ class PermissionRulesTest {
         assertThat(statusRule.check(move("bug", LUIS), context)).singleElement().asString()
                 .contains("Luís (backend dev) moved it from 'to do' to 'in progress'")
                 .contains("Only testers and admins");
+    }
+
+    @Test
+    void devsMayMoveAMainTaskIntoWaitingInfoOnly() {
+        assertThat(statusRule.check(move("bug", LUIS, "in progress", "Waiting Info"), context)).isEmpty();
+        assertThat(statusRule.check(move("bug", LUIS, "waiting info", "in progress"), context)).singleElement()
+                .asString().contains("devs may only move them to waiting info");
+        // Testers can't use the dev exception on stream tasks.
+        assertThat(statusRule.check(move("mobile", MARTIM, "in progress", "waiting info"), context)).hasSize(1);
     }
 
     @Test
@@ -107,8 +116,12 @@ class PermissionRulesTest {
     }
 
     private static ClickUpEvent move(String taskId, long userId) {
+        return move(taskId, userId, "to do", "in progress");
+    }
+
+    private static ClickUpEvent move(String taskId, long userId, String from, String to) {
         HistoryItem item = new HistoryItem("h", "1", null, "status", null, new User(userId),
-                MAPPER.readTree("{\"status\":\"to do\"}"), MAPPER.readTree("{\"status\":\"in progress\"}"));
+                MAPPER.readTree("{\"status\":\"" + from + "\"}"), MAPPER.readTree("{\"status\":\"" + to + "\"}"));
         return new ClickUpEvent("k", "wh", "ws", "taskStatusUpdated", taskId, List.of(item));
     }
 
@@ -130,7 +143,7 @@ class PermissionRulesTest {
                         new AuditProperties.Person("106791322", "Martim", "tester", null, null),
                         new AuditProperties.Person("112510284", "Luís", "dev", "backend", null),
                         new AuditProperties.Person("278564675", "Vivek", "dev", "mobile", true)),
-                List.of("Story", "Bug", "Change", "Epic"), List.of("backend", "web", "mobile"),
+                List.of("Story", "Bug", "Change", "Epic"), List.of("waiting info"), List.of("backend", "web", "mobile"),
                 new AuditProperties.Scheduler(false),
                 new AuditProperties.Rules(
                         new AuditProperties.StreamTaskStatus(true, List.of("Story", "Bug", "Change"), List.of("Task"),

@@ -20,6 +20,7 @@ import org.springframework.validation.annotation.Validated;
  * @param rulesDocUrl     link to the rules doc, added to reports and undo comments
  * @param people          who's who, for the permission rules (anyone not listed has no permissions)
  * @param mainTaskTypes   task types testers may move (Story, Bug, Change, Epic)
+ * @param devMainTaskStatuses statuses devs may also move a main task into (e.g. waiting info)
  * @param streams         stream names, also the stream tags (backend, web, mobile)
  * @param scheduler       in-process hourly trigger for local runs; on Cloud Run, Cloud Scheduler calls the endpoint
  * @param rules           per-rule settings
@@ -38,6 +39,7 @@ public record AuditProperties(
         String rulesDocUrl,
         List<@Valid Person> people,
         List<String> mainTaskTypes,
+        List<String> devMainTaskStatuses,
         List<String> streams,
         @Valid @NotNull Scheduler scheduler,
         @Valid @NotNull Rules rules
@@ -57,6 +59,10 @@ public record AuditProperties(
 
     public List<String> mainTaskTypesOrEmpty() {
         return mainTaskTypes == null ? List.of() : mainTaskTypes;
+    }
+
+    public List<String> devMainTaskStatusesOrEmpty() {
+        return devMainTaskStatuses == null ? List.of() : devMainTaskStatuses;
     }
 
     public List<String> streamsOrEmpty() {

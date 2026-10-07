@@ -50,7 +50,7 @@ class EnforcementGuardTest {
         AuditProperties properties = PermissionRulesTest.properties();
         People people = new People(properties);
         TaskKinds kinds = new TaskKinds(properties);
-        Permissions permissions = new Permissions(people);
+        Permissions permissions = new Permissions(people, properties);
         guard = new EnforcementGuard(factory, new TaskTypeResolver(), kinds, people, permissions,
                 new StreamTagChangeRule(people, kinds, permissions, properties), properties);
         when(factory.forWorkspace("ws")).thenReturn(client);

@@ -5,6 +5,7 @@ import io.chronohealth.clickup.webhook.EventDispatcher;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -72,6 +73,6 @@ public class EventProcessor {
     }
 
     private OffsetDateTime now() {
-        return OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        return OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
     }
 }

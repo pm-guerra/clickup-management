@@ -14,6 +14,7 @@ import io.chronohealth.clickup.workflow.TaskTypeResolver;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -83,7 +84,7 @@ public class AuditJob {
     }
 
     private RunResult audit() {
-        OffsetDateTime runStart = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        OffsetDateTime runStart = OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
         OffsetDateTime from = repository.lastCheckedUntil()
                 .map(last -> last.minus(properties.overlap()))
                 .orElse(runStart.minus(properties.initialLookback()));

@@ -75,11 +75,11 @@ public class EnforcementGuard implements EventGuard {
         AuditContext context = new AuditContext(client, event.workspaceId(), taskTypes, Duration.ZERO);
         Task task = context.task(event.taskId());
         Classification kind = kinds.classify(task, context);
-        if (permissions.canMoveStatus(userId, kind)) {
-            return false;
-        }
         String previous = StatusMoveRule.status(move.before());
         String attempted = StatusMoveRule.status(move.after());
+        if (permissions.canMoveStatus(userId, kind, attempted)) {
+            return false;
+        }
         String current = task.status() == null || task.status().status() == null ? "" : task.status().status();
         if (!current.equalsIgnoreCase(attempted)) {
             log.info("Task {} moved on since the forbidden move (now '{}'); not undoing it", task.id(), current);

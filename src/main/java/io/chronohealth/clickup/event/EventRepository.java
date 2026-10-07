@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.dao.DuplicateKeyException;
@@ -166,7 +167,7 @@ public class EventRepository {
     }
 
     private OffsetDateTime now() {
-        return OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        return OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
     }
 
     private StoredEvent map(ResultSet rs, int rowNum) throws SQLException {

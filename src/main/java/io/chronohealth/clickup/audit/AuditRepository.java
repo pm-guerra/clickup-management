@@ -5,6 +5,7 @@ import java.sql.SQLException;
 import java.time.Clock;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.jdbc.core.simple.JdbcClient;
@@ -195,7 +196,7 @@ public class AuditRepository {
     }
 
     private OffsetDateTime now() {
-        return OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC);
+        return OffsetDateTime.now(clock).withOffsetSameInstant(ZoneOffset.UTC).truncatedTo(ChronoUnit.MICROS);
     }
 
     private static String truncate(String value) {
