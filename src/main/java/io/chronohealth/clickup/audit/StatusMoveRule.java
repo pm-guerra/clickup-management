@@ -68,7 +68,7 @@ public class StatusMoveRule implements AuditEventRule {
         List<String> findings = new ArrayList<>();
         for (HistoryItem move : moves) {
             Long userId = move.user() == null ? null : move.user().id();
-            if (!permissions.canMoveStatus(userId, kind, status(move.after()))) {
+            if (!permissions.canMoveStatus(userId, kind)) {
                 findings.add(people.describe(userId) + " moved it from '" + status(move.before()) + "' to '"
                         + status(move.after()) + "'. " + permissions.whoMayMove(kind)
                         + (people.isEnforced(userId) ? " Undone automatically." : ""));

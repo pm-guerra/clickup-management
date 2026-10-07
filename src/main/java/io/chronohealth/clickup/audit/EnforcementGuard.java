@@ -77,7 +77,7 @@ public class EnforcementGuard implements EventGuard {
         Classification kind = kinds.classify(task, context);
         String previous = StatusMoveRule.status(move.before());
         String attempted = StatusMoveRule.status(move.after());
-        if (permissions.canMoveStatus(userId, kind, attempted)) {
+        if (permissions.canMoveStatus(userId, kind)) {
             return false;
         }
         String current = task.status() == null || task.status().status() == null ? "" : task.status().status();
