@@ -78,7 +78,7 @@ app:
       - { id: "106723346", name: Octo bot, role: admin }
       - { id: "100796657", name: Pedro, role: admin }
       - { id: "106501885", name: José, role: admin }
-      - { id: "106791322", name: Martim, role: tester }
+      - { id: "106791322", name: Martim, role: tester, enforce: true }
       - { id: "106744781", name: Katya, role: tester }
       - { id: "266659509", name: Catarina, role: tester }
       # enforce: their forbidden changes are undone right away (others are only reported)
