@@ -136,7 +136,7 @@ class AuditJobIntegrationTest {
     }
 
     @Test
-    void reportsWrongChangesMadeAfterTheFirstRun() {
+    void reportsWrongChangesMadeAfterTheFirstRun() throws InterruptedException {
         changed();
         job.run(); // first run only sets the starting point for change checks
 
@@ -145,6 +145,8 @@ class AuditJobIntegrationTest {
         storeEvent("taskStatusUpdated", "bug", "status", 112510284L, // Luís (backend dev) moving a Bug
                 "{\"status\":\"to do\"}", "{\"status\":\"in progress\"}");
         storeEvent("taskTagUpdated", "bug", "tag", 100796657L, null, "[{\"name\":\"web\"}]"); // Pedro (admin): fine
+        // A run checks changes received before it starts; make sure the clock has moved past the stored events.
+        Thread.sleep(5);
 
         assertThat(job.run().newIssues()).isEqualTo(1);
         ArgumentCaptor<String> message = ArgumentCaptor.forClass(String.class);

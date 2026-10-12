@@ -170,6 +170,7 @@ clickup:
               parent-types: [Bug, Change]
           copy-fields:
             - Pre Go Live
+            - Environment
           copy-priority: true
         - tag: web
           task-types: [Story, Bug, Change]
@@ -182,6 +183,7 @@ clickup:
               parent-types: [Bug, Change]
           copy-fields:
             - Pre Go Live
+            - Environment
           copy-priority: true
         - tag: mobile
           task-types: [Story, Bug, Change]
@@ -194,4 +196,5 @@ clickup:
               parent-types: [Bug, Change]
           copy-fields:
             - Pre Go Live
+            - Environment
           copy-priority: true
