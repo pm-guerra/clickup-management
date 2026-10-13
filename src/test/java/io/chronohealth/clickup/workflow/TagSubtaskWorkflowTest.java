@@ -223,7 +223,8 @@ class TagSubtaskWorkflowTest {
                                 "ready for testing"),
                         new ClickUpProperties.CreateDefaults(false, List.of()),
                         new ClickUpProperties.RejectionReopen(false, List.of(), List.of(), List.of(), List.of(),
-                                "waiting info")));
+                                "waiting info"),
+                        new ClickUpProperties.PrioritySync(false, List.of(), List.of(), List.of())));
         return new TagSubtaskWorkflow(factory, new CustomFieldValueMapper(), new TaskTypeResolver(), properties);
     }
 

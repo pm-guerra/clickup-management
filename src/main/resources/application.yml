@@ -127,6 +127,13 @@ clickup:
       field-mappings: ${CLICKUP_CUSTOM_FIELD_MAPPINGS:{}}
       # Optional: only copy when the parent's custom task type id matches (e.g. the "Bug" type).
       parent-custom-item-id: ${CLICKUP_BUG_CUSTOM_ITEM_ID:}
+    # While a Story/Bug/Change is still in "to do", a priority change is copied to its stream tasks
+    # (see PrioritySyncWorkflow).
+    priority-sync:
+      enabled: true
+      parent-types: [Story, Bug, Change]
+      when-statuses: [to do]
+      subtask-types: [Task]
     # When testing rejects a task (ready for testing -> in progress / to do), reopen its completed subtasks
     # (see RejectionReopenWorkflow).
     rejection-reopen:

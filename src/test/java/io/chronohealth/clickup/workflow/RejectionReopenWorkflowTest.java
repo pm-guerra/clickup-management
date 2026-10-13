@@ -115,6 +115,7 @@ class RejectionReopenWorkflowTest {
                         new ClickUpProperties.CreateDefaults(false, List.of()),
                         new ClickUpProperties.RejectionReopen(true, List.of("Story", "Bug", "Change"),
                                 List.of("ready for testing"), List.of("in progress", "to do"), List.of("complete"),
-                                "waiting info")));
+                                "waiting info"),
+                        new ClickUpProperties.PrioritySync(false, List.of(), List.of(), List.of())));
     }
 }

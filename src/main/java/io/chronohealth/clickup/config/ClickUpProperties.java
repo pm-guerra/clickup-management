@@ -28,7 +28,32 @@ public record ClickUpProperties(
 
     public record Workflows(@Valid @NotNull CopyParentFields copyParentFields, @Valid @NotNull TagSubtasks tagSubtasks,
                             @Valid @NotNull ParentStatus parentStatus, @Valid @NotNull CreateDefaults createDefaults,
-                            @Valid @NotNull RejectionReopen rejectionReopen) {
+                            @Valid @NotNull RejectionReopen rejectionReopen,
+                            @Valid @NotNull PrioritySync prioritySync) {
+    }
+
+    /**
+     * Copies a parent's priority to its subtasks while the parent is still in one of {@code whenStatuses}
+     * (see PrioritySyncWorkflow).
+     *
+     * @param parentTypes  task types whose priority is synced (Story, Bug, Change)
+     * @param whenStatuses only while the parent is in one of these statuses (to do)
+     * @param subtaskTypes subtasks of these types get the priority (Task = the stream tasks)
+     */
+    public record PrioritySync(boolean enabled, List<String> parentTypes, List<String> whenStatuses,
+                               List<String> subtaskTypes) {
+
+        public List<String> parentTypesOrEmpty() {
+            return parentTypes == null ? List.of() : parentTypes;
+        }
+
+        public List<String> whenStatusesOrEmpty() {
+            return whenStatuses == null ? List.of() : whenStatuses;
+        }
+
+        public List<String> subtaskTypesOrEmpty() {
+            return subtaskTypes == null ? List.of() : subtaskTypes;
+        }
     }
 
     /**

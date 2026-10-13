@@ -143,6 +143,18 @@ public class ClickUpClient {
     }
 
     /**
+     * Sets a task's priority (1 urgent .. 4 low), or clears it when {@code level} is null.
+     */
+    public void setPriority(String taskId, Integer level) {
+        java.util.Map<String, Object> body = new java.util.HashMap<>();
+        body.put("priority", level);
+        http.run("setPriority", () -> api().put().uri("/task/{taskId}", taskId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve().toBodilessEntity());
+    }
+
+    /**
      * Sets a custom field. The {@code value} shape depends on the field type; see ClickUp's "Set Custom Field Value" docs.
      */
     public void setCustomField(String taskId, String fieldId, Object value) {
