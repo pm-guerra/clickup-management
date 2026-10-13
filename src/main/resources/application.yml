@@ -99,7 +99,7 @@ app:
         parent-types: [Story, Bug, Change]
         # Only Task-type subtasks are stream tasks; nested Bugs/Changes/Stories are not
         stream-types: [Task]
-        allowed-statuses: [pending, to do, in progress, review, complete, waiting info]
+        allowed-statuses: [pending, to do, in progress, review, in development, complete, waiting info]
       # Main tasks: testers/admins move them; stream tasks: their stream's devs/admins (checked on each change)
       status-move:
         enabled: true
@@ -149,7 +149,7 @@ clickup:
       enabled: true
       parent-types: [Story, Bug, Change]
       # At least one subtask in one of these -> parent to "in progress"
-      started-statuses: [in progress, review, blocked, ready for testing, complete]
+      started-statuses: [in progress, review, in development, blocked, ready for testing, complete]
       started-target: in progress
       # All subtasks in one of these -> parent to "ready for testing" (takes precedence)
       done-statuses: [complete]
@@ -170,7 +170,6 @@ clickup:
               parent-types: [Bug, Change]
           copy-fields:
             - Pre Go Live
-            - Environment
           copy-priority: true
         - tag: web
           task-types: [Story, Bug, Change]
@@ -183,7 +182,6 @@ clickup:
               parent-types: [Bug, Change]
           copy-fields:
             - Pre Go Live
-            - Environment
           copy-priority: true
         - tag: mobile
           task-types: [Story, Bug, Change]
@@ -196,5 +194,4 @@ clickup:
               parent-types: [Bug, Change]
           copy-fields:
             - Pre Go Live
-            - Environment
           copy-priority: true

@@ -29,7 +29,7 @@ class ParentStatusWorkflowTest {
      * The Product list's statuses, in board order.
      */
     private static final List<String> ORDER = List.of("pending", "waiting info", "in lobby", "to do", "in progress",
-            "blocked", "review", "ready for testing", "complete mobile", "complete web", "complete");
+            "blocked", "review", "in development", "ready for testing", "complete mobile", "complete web", "complete");
     private static final long BUG = 1001L;
     private static final long EPIC = 1003L;
 
@@ -65,6 +65,18 @@ class ParentStatusWorkflowTest {
         }
 
         verify(client, org.mockito.Mockito.times(4)).updateTask("parent", TaskUpdate.status("in progress"));
+    }
+
+    @Test
+    void inDevelopmentCountsAsStartedButNotDone() {
+        parent(BUG, "to do", "in development", "in development");
+        workflow.handle(event());
+        verify(client).updateTask("parent", TaskUpdate.status("in progress"));
+
+        // Merged but not yet released to staging: the parent stays in progress.
+        parent(BUG, "in progress", "in development", "complete");
+        workflow.handle(event());
+        verify(client, never()).updateTask("parent", TaskUpdate.status("ready for testing"));
     }
 
     @Test
@@ -157,7 +169,8 @@ class ParentStatusWorkflowTest {
                 new ClickUpProperties.Workflows(new ClickUpProperties.CopyParentFields(false, "{}", ""),
                         new ClickUpProperties.TagSubtasks(false, List.of()),
                         new ClickUpProperties.ParentStatus(true, List.of("Story", "Bug", "Change"),
-                                List.of("in progress", "review", "blocked", "ready for testing", "complete"),
+                                List.of("in progress", "review", "in development", "blocked", "ready for testing",
+                                        "complete"),
                                 "in progress", List.of("complete"), "ready for testing"),
                         new ClickUpProperties.CreateDefaults(false, List.of()),
                         new ClickUpProperties.RejectionReopen(false, List.of(), List.of(), List.of(), List.of(),
