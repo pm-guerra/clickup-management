@@ -88,7 +88,7 @@ app:
       - { id: "106773419", name: Nubelson, role: dev, stream: web, enforce: true }
       - { id: "106655756", name: Danylo, role: dev, stream: web }
     # Testers move these; devs move the stream tasks under Stories/Bugs/Changes
-    main-task-types: [Story, Bug, Change, Epic]
+    main-task-types: [Story, Bug, Change, Feature, Epic]
     streams: [backend, web, mobile]
     scheduler:
       # Local in-process trigger; on Cloud Run, Cloud Scheduler calls POST /admin/audit/run hourly.
@@ -96,7 +96,7 @@ app:
     rules:
       stream-task-status:
         enabled: true
-        parent-types: [Story, Bug, Change]
+        parent-types: [Story, Bug, Change, Feature]
         # Only Task-type subtasks are stream tasks; nested Bugs/Changes/Stories are not
         stream-types: [Task]
         allowed-statuses: [pending, to do, in progress, review, in development, complete, waiting info]
@@ -131,14 +131,14 @@ clickup:
     # (see PrioritySyncWorkflow).
     priority-sync:
       enabled: true
-      parent-types: [Story, Bug, Change]
+      parent-types: [Story, Bug, Change, Feature]
       when-statuses: [to do]
       subtask-types: [Task]
     # When testing rejects a task (ready for testing -> in progress / to do), reopen its completed subtasks
     # (see RejectionReopenWorkflow).
     rejection-reopen:
       enabled: true
-      task-types: [Story, Bug, Change]
+      task-types: [Story, Bug, Change, Feature]
       from-statuses: [ready for testing]
       to-statuses: [in progress, to do]
       reopen-statuses: [complete]
@@ -154,7 +154,7 @@ clickup:
     # backwards: it only changes if the target comes later in the list's status order than the current status.
     parent-status:
       enabled: true
-      parent-types: [Story, Bug, Change]
+      parent-types: [Story, Bug, Change, Feature]
       # At least one subtask in one of these -> parent to "in progress"
       started-statuses: [in progress, review, in development, blocked, ready for testing, complete]
       started-target: in progress
@@ -167,7 +167,7 @@ clickup:
       enabled: true
       rules:
         - tag: backend
-          task-types: [Story, Bug, Change]
+          task-types: [Story, Bug, Change, Feature]
           title-prefix: "Backend | "
           status: to do
           tags: [backend]
@@ -179,7 +179,7 @@ clickup:
             - Pre Go Live
           copy-priority: true
         - tag: web
-          task-types: [Story, Bug, Change]
+          task-types: [Story, Bug, Change, Feature]
           title-prefix: "Web | "
           status: to do
           tags: [web]
@@ -191,7 +191,7 @@ clickup:
             - Pre Go Live
           copy-priority: true
         - tag: mobile
-          task-types: [Story, Bug, Change]
+          task-types: [Story, Bug, Change, Feature]
           title-prefix: "Mobile | "
           status: to do
           tags: [mobile]
