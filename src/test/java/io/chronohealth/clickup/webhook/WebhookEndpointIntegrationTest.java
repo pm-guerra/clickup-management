@@ -10,6 +10,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import io.chronohealth.clickup.client.ClickUpApiException;
@@ -161,6 +162,20 @@ class WebhookEndpointIntegrationTest {
                 .extracting(ClickUpProperties.TagSubtaskRule::tag, ClickUpProperties.TagSubtaskRule::titlePrefix)
                 .containsExactly(tuple("backend", "Backend | "), tuple("web", "Web | "), tuple("mobile", "Mobile | "));
         assertThat(registrationService.subscribedEvents()).contains("taskTagUpdated");
+    }
+
+    @Test
+    void showsATasksStatusChanges() throws Exception {
+        deliver("""
+                {"webhook_id":"wh-1","event":"taskStatusUpdated","task_id":"t-9",
+                 "history_items":[{"id":"hist-9","field":"status","user":{"id":7},
+                   "before":{"status":"ready for testing"},"after":{"status":"in progress"}}]}
+                """);
+
+        mvc.perform(get("/admin/events/task/t-9").header("X-Admin-Key", "test-admin-key"))
+                .andExpect(status().isOk())
+                .andExpect(content().string(org.hamcrest.Matchers.containsString(
+                        "\"field\":\"status\",\"user_id\":7,\"from\":\"ready for testing\",\"to\":\"in progress\"")));
     }
 
     @Test

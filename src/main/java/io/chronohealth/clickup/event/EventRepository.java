@@ -160,6 +160,15 @@ public class EventRepository {
                 .list();
     }
 
+    public List<StoredEvent> findByTask(String taskId, int limit) {
+        return jdbc.sql("select " + COLUMNS + " from webhook_event where task_id = :taskId "
+                        + "order by received_at desc limit :limit")
+                .param("taskId", taskId)
+                .param("limit", limit)
+                .query(this::map)
+                .list();
+    }
+
     public int deleteSucceededBefore(OffsetDateTime cutoff) {
         return jdbc.sql("delete from webhook_event where status = 'SUCCEEDED' and updated_at < :cutoff")
                 .param("cutoff", cutoff)
