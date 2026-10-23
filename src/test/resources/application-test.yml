@@ -19,6 +19,8 @@ app:
     notify-user-id: ""
     scheduler:
       enabled: false
+  mentions:
+    channels: []
   events:
     pacing: 0s
     run-budget: 10s

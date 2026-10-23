@@ -1,5 +1,6 @@
 package io.chronohealth.clickup.webhook;
 
+import io.chronohealth.clickup.mention.Mentions;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.HexFormat;
@@ -20,7 +21,10 @@ public class EventNormalizer {
     public ClickUpEvent normalize(ClickUpWebhookPayload payload, WebhookRegistration registration, byte[] rawBody) {
         List<ClickUpWebhookPayload.HistoryItem> historyItems = payload.historyItems() == null
                 ? List.of()
-                : payload.historyItems().stream().map(EventNormalizer::stripUnsafeValues).toList();
+                : payload.historyItems().stream()
+                        .map(EventNormalizer::reduceComment)
+                        .map(EventNormalizer::stripUnsafeValues)
+                        .toList();
         return new ClickUpEvent(
                 idempotencyKey(payload.webhookId(), historyItems, rawBody),
                 payload.webhookId(),
@@ -44,6 +48,14 @@ public class EventNormalizer {
         String key = webhookId + ":" + suffix;
         // Keep within the column size; hashing preserves determinism.
         return key.length() <= 255 ? key : webhookId + ":hash-" + sha256(suffix.getBytes());
+    }
+
+    private static ClickUpWebhookPayload.HistoryItem reduceComment(ClickUpWebhookPayload.HistoryItem item) {
+        if (item.comment() == null || item.comment().isNull() || item.comment().isMissingNode()) {
+            return item;
+        }
+        String commentId = item.comment().path("id").asString(item.id());
+        return item.withCommentReduced(Mentions.inComment(item.comment()), commentId);
     }
 
     private static ClickUpWebhookPayload.HistoryItem stripUnsafeValues(ClickUpWebhookPayload.HistoryItem item) {

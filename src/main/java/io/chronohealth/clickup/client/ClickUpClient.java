@@ -1,6 +1,7 @@
 package io.chronohealth.clickup.client;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import io.chronohealth.clickup.client.dto.ChatMessage;
 import io.chronohealth.clickup.client.dto.CustomFieldValue;
 import io.chronohealth.clickup.client.dto.CustomTaskType;
 import io.chronohealth.clickup.client.dto.NewSubtask;
@@ -101,6 +102,26 @@ public class ClickUpClient {
                 .contentType(MediaType.APPLICATION_JSON)
                 .body(new DirectMessageBody(List.of(userId)))
                 .retrieve().body(ChatChannelResponse.class).data().id());
+    }
+
+    /**
+     * The newest top-level messages of a chat channel (newest first), content as markdown.
+     */
+    public List<ChatMessage> getChatMessages(String workspaceId, String channelId, int limit) {
+        return http.execute("getChatMessages", () -> api().get()
+                .uri(http.v3BaseUrl() + "/workspaces/{workspaceId}/chat/channels/{channelId}/messages?limit={limit}"
+                        + "&content_format=text/md", workspaceId, channelId, limit)
+                .retrieve().body(ChatMessagesResponse.class).dataOrEmpty());
+    }
+
+    /**
+     * Replies in the thread of a chat message, content as markdown.
+     */
+    public List<ChatMessage> getChatReplies(String workspaceId, String messageId, int limit) {
+        return http.execute("getChatReplies", () -> api().get()
+                .uri(http.v3BaseUrl() + "/workspaces/{workspaceId}/chat/messages/{messageId}/replies?limit={limit}"
+                        + "&content_format=text/md", workspaceId, messageId, limit)
+                .retrieve().body(ChatMessagesResponse.class).dataOrEmpty());
     }
 
     /**
@@ -242,6 +263,13 @@ public class ClickUpClient {
     }
 
     private record ChatMessageBody(String type, String content, String contentFormat) {
+    }
+
+    private record ChatMessagesResponse(List<ChatMessage> data) {
+
+        List<ChatMessage> dataOrEmpty() {
+            return data == null ? List.of() : data;
+        }
     }
 
     private record CustomTaskTypesResponse(List<CustomTaskType> customItems) {

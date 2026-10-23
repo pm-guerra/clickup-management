@@ -44,4 +44,26 @@ class EventNormalizerTest {
         assertThat(event.historyItems().get(0).after()).isNull();
         assertThat(event.historyItems().get(1).after()).isNotNull();
     }
+
+    @Test
+    void replacesACommentByItsIdAndMentions() {
+        JsonMapper mapper = JsonMapper.builder().build();
+        String json = """
+                {"webhook_id":"w1","event":"taskCommentPosted","task_id":"t1","history_items":[{"id":"h1",
+                 "type":1,"date":"1700000000000","field":"comment","user":{"id":5},
+                 "comment":{"id":"c9","text_content":"secret","comment":[{"text":"hi "},
+                  {"type":"tag","user":{"id":106723346,"username":"Octo bot"}},{"text":" secret"}]}}]}""";
+        ClickUpWebhookPayload payload = JsonMapper.builder()
+                .propertyNamingStrategy(tools.jackson.databind.PropertyNamingStrategies.SNAKE_CASE).build()
+                .readValue(json, ClickUpWebhookPayload.class);
+        WebhookRegistration registration = new WebhookRegistration("w1", "ws", "e", List.of(), "s", Instant.now());
+
+        ClickUpWebhookPayload.HistoryItem item = new EventNormalizer().normalize(payload, registration, new byte[0])
+                .historyItems().getFirst();
+
+        assertThat(item.comment()).isNull();
+        assertThat(item.commentId()).isEqualTo("c9");
+        assertThat(item.mentionedUserIds()).containsExactly(106723346L);
+        assertThat(mapper.writeValueAsString(item)).doesNotContain("secret");
+    }
 }

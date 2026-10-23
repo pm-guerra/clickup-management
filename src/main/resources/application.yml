@@ -58,6 +58,16 @@ app:
       enabled: ${EVENT_SCHEDULER_ENABLED:true}
       interval: 60s
 
+  # Mentions of Octo bot: task comments come via the webhook, chat channels are polled every minute (the bot must
+  # be a member). Recorded with ids only; forwarding to the agent comes later.
+  mentions:
+    enabled: true
+    bot-user-id: 106723346
+    channels:
+      - 2kyqtcmb-5395
+      - 6-901522637869-8
+    page-size: 50
+    thread-lookback: 7d
   # Hourly audit of tasks changed since the previous run (see AuditJob). Sends a ClickUp DM only for new issues.
   audit:
     enabled: true

@@ -1,5 +1,6 @@
 package io.chronohealth.clickup.event;
 
+import io.chronohealth.clickup.mention.ChatMentionPoller;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -31,13 +32,16 @@ public class EventRetryJob {
     private final EventProcessor processor;
     private final EventProperties properties;
     private final Clock clock;
+    private final ChatMentionPoller chatMentions;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
-    public EventRetryJob(EventRepository repository, EventProcessor processor, EventProperties properties, Clock clock) {
+    public EventRetryJob(EventRepository repository, EventProcessor processor, EventProperties properties, Clock clock,
+                         ChatMentionPoller chatMentions) {
         this.repository = repository;
         this.processor = processor;
         this.properties = properties;
         this.clock = clock;
+        this.chatMentions = chatMentions;
     }
 
     public RunResult run() {
@@ -46,9 +50,21 @@ public class EventRetryJob {
             return new RunResult(0, 0, 0, 0, true);
         }
         try {
+            pollChatMentions();
             return drain();
         } finally {
             running.set(false);
+        }
+    }
+
+    /**
+     * Chat has no webhook, so the once-a-minute run also looks for new mentions of the bot in watched channels.
+     */
+    private void pollChatMentions() {
+        try {
+            chatMentions.poll();
+        } catch (RuntimeException e) {
+            log.warn("Chat mention poll failed: {}", e.getClass().getSimpleName());
         }
     }
 
