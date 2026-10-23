@@ -112,7 +112,6 @@ public class MentionRepository {
     }
 
     private StoredMention map(ResultSet rs, int rowNum) throws SQLException {
-        long author = rs.getLong("author_user_id");
         return new StoredMention(
                 rs.getLong("id"),
                 rs.getString("source"),
@@ -120,7 +119,7 @@ public class MentionRepository {
                 rs.getString("task_id"),
                 rs.getString("channel_id"),
                 rs.getString("parent_message_id"),
-                rs.wasNull() ? null : author,
+                rs.getObject("author_user_id", Long.class),
                 rs.getObject("mentioned_at", OffsetDateTime.class),
                 rs.getObject("recorded_at", OffsetDateTime.class),
                 rs.getObject("forwarded_at", OffsetDateTime.class));
