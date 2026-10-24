@@ -101,11 +101,22 @@ class ParentStatusWorkflowTest {
 
     @Test
     void reopenedSubtaskPullsCompleteParentBack() {
-        parent(BUG, "complete", "waiting info", "complete");
+        parent(BUG, "complete", "in progress", "complete");
 
         workflow.handle(event());
 
         verify(client).updateTask("parent", TaskUpdate.status("in progress"));
+    }
+
+    @Test
+    void subtaskWaitingForInfoLeavesTheParentAlone() {
+        // E.g. after testing rejected it: the parent stays where the tester put it.
+        parent(BUG, "to do", "waiting info", "complete");
+        workflow.handle(event());
+        parent(BUG, "ready for testing", "waiting info", "in progress");
+        workflow.handle(event());
+
+        verify(client, never()).updateTask(anyString(), any());
     }
 
     @Test

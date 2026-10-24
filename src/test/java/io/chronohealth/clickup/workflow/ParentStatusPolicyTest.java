@@ -25,7 +25,6 @@ class ParentStatusPolicyTest {
     @Test
     void anythingInProgressOrMixedMeansInProgress() {
         assertThat(derive("in progress", "complete")).isEqualTo("in progress");
-        assertThat(derive("waiting info", "complete")).isEqualTo("in progress");
         assertThat(derive("to do", "review")).isEqualTo("in progress");
         assertThat(derive("pending", "complete")).isEqualTo("in progress");
     }
@@ -59,6 +58,14 @@ class ParentStatusPolicyTest {
         assertThat(ParentStatusPolicy.derive(List.of(new Child("complete", false)), false)).contains("complete");
         // A nested Bug already in testing counts as complete.
         assertThat(derive("ready for testing", "complete")).isEqualTo("ready for testing");
+    }
+
+    @Test
+    void anySubtaskWaitingForInfoLeavesTheParentToPeople() {
+        assertThat(ParentStatusPolicy.derive(List.of(new Child("waiting info", false), new Child("complete", false)),
+                true)).isEmpty();
+        assertThat(ParentStatusPolicy.derive(List.of(new Child("Waiting Info", false),
+                new Child("in progress", false)), true)).isEmpty();
     }
 
     @Test

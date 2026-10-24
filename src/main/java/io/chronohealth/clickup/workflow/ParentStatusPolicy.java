@@ -14,13 +14,14 @@ import java.util.Set;
  * <ol>
  *   <li>all pending -> pending; all pending or to do -> to do;</li>
  *   <li>all blocked -> blocked;</li>
- *   <li>any in progress, waiting info or blocked, or a mix of started and not started -> in progress;</li>
+ *   <li>any in progress or blocked, or a mix of started and not started -> in progress;</li>
  *   <li>any in review -> review;</li>
  *   <li>any in ready_for_dev -> ready_for_dev if every subtask is mobile, else review;</li>
  *   <li>any in development -> in development;</li>
  *   <li>all complete -> ready for testing (Story/Bug/Change/Feature), complete (a Task wrapping tasks).</li>
  * </ol>
- * A subtask in ready for testing or approved (a nested Bug, say) counts as complete.
+ * A subtask in ready for testing or approved (a nested Bug, say) counts as complete. While any subtask is in waiting
+ * info nothing is decided: the parent is moved by hand.
  * <p>
  * The app never pulls a parent back into the testers' stages before development (pending, in lobby, waiting info,
  * to do), and leaves a parent that testers moved on to approved or complete once all its subtasks are complete.
@@ -51,7 +52,6 @@ public final class ParentStatusPolicy {
             entry(TO_DO, Stage.NOT_STARTED),
             entry(BLOCKED, Stage.BLOCKED),
             entry(IN_PROGRESS, Stage.ACTIVE),
-            entry(WAITING_INFO, Stage.ACTIVE),
             entry(REVIEW, Stage.REVIEW),
             entry(READY_FOR_DEV, Stage.READY_FOR_DEV),
             entry(IN_DEVELOPMENT, Stage.IN_DEVELOPMENT),
@@ -89,6 +89,10 @@ public final class ParentStatusPolicy {
      */
     public static Optional<String> derive(List<Child> children, boolean testingType) {
         if (children.isEmpty()) {
+            return Optional.empty();
+        }
+        // The parent may rightly be in progress or waiting info then: people decide.
+        if (children.stream().anyMatch(c -> WAITING_INFO.equals(normalize(c.status())))) {
             return Optional.empty();
         }
         List<Stage> stages = new ArrayList<>();
