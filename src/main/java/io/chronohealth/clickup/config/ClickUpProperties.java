@@ -114,33 +114,26 @@ public record ClickUpProperties(
     }
 
     /**
-     * Moves a parent's status forward based on its subtasks' statuses (see ParentStatusWorkflow).
+     * Keeps a parent's status in step with its subtasks' statuses (see ParentStatusPolicy).
      *
-     * @param parentTypes     only parents of these task types are managed (empty = any)
-     * @param startedStatuses any subtask in one of these -> parent to {@code startedTarget}
-     * @param startedTarget   e.g. "in progress"
-     * @param doneStatuses    all subtasks in one of these -> parent to {@code doneTarget}
-     * @param doneTarget      e.g. "ready for testing"
+     * @param parentTypes  parents of these task types follow their subtasks (Epics don't)
+     * @param testingTypes these are tested as a whole: all subtasks complete -> ready for testing (others: complete),
+     *                     and only these may be in ready for testing
+     * @param mobileStream the stream whose tasks may be in ready_for_dev
      */
     public record ParentStatus(
             boolean enabled,
             List<String> parentTypes,
-            List<String> startedStatuses,
-            @NotBlank String startedTarget,
-            List<String> doneStatuses,
-            @NotBlank String doneTarget
+            List<String> testingTypes,
+            @NotBlank String mobileStream
     ) {
 
         public List<String> parentTypesOrEmpty() {
             return parentTypes == null ? List.of() : parentTypes;
         }
 
-        public List<String> startedStatusesOrEmpty() {
-            return startedStatuses == null ? List.of() : startedStatuses;
-        }
-
-        public List<String> doneStatusesOrEmpty() {
-            return doneStatuses == null ? List.of() : doneStatuses;
+        public List<String> testingTypesOrEmpty() {
+            return testingTypes == null ? List.of() : testingTypes;
         }
     }
 

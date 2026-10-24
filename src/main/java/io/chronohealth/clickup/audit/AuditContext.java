@@ -19,6 +19,7 @@ public class AuditContext {
     private final TaskTypeResolver taskTypes;
     private final Duration pacing;
     private final Map<String, Task> tasks = new HashMap<>();
+    private final Map<String, Task> tasksWithSubtasks = new HashMap<>();
     private long lastCallNanos;
 
     public AuditContext(ClickUpClient client, String workspaceId, TaskTypeResolver taskTypes, Duration pacing) {
@@ -41,6 +42,25 @@ public class AuditContext {
         Task fetched = client.getTask(taskId);
         tasks.put(taskId, fetched);
         return fetched;
+    }
+
+    /**
+     * The task with its {@code subtasks} filled in.
+     */
+    public Task taskWithSubtasks(String taskId) {
+        Task cached = tasksWithSubtasks.get(taskId);
+        if (cached != null) {
+            return cached;
+        }
+        pace();
+        Task fetched = client.getTask(taskId, true);
+        tasksWithSubtasks.put(taskId, fetched);
+        tasks.putIfAbsent(taskId, fetched);
+        return fetched;
+    }
+
+    public ClickUpClient client() {
+        return client;
     }
 
     public Optional<String> typeName(Task task) {

@@ -93,9 +93,11 @@ app:
     rules-doc-url: https://app.clickup.com/90152153739/docs/2kyqtcmb-7115
     # Who's who for the permission rules (ClickUp user ids). Anyone not listed has no permissions.
     people:
+      # unrestricted: the status rules (ready for testing / ready_for_dev placement, parents ahead of subtasks)
+      # don't apply to them; everyone else's moves that break them are undone.
       # The app itself acts as Octo bot (it authorized the OAuth app); its automatic changes are always allowed
-      - { id: "106723346", name: Octo bot, role: admin }
-      - { id: "100796657", name: Pedro, role: admin }
+      - { id: "106723346", name: Octo bot, role: admin, unrestricted: true }
+      - { id: "100796657", name: Pedro, role: admin, unrestricted: true }
       - { id: "106501885", name: José, role: admin }
       - { id: "106791322", name: Martim, role: tester }
       - { id: "106744781", name: Katya, role: tester }
@@ -118,12 +120,20 @@ app:
         parent-types: [Story, Bug, Change, Feature]
         # Only Task-type subtasks are stream tasks; nested Bugs/Changes/Stories are not
         stream-types: [Task]
-        allowed-statuses: [pending, to do, in progress, review, in development, complete, waiting info]
+        # ready_for_dev is further limited to mobile (status-placement)
+        allowed-statuses: [pending, to do, in progress, blocked, review, ready_for_dev, in development, complete,
+                           waiting info]
       # Main tasks: testers/admins move them; stream tasks: their stream's devs/admins (checked on each change)
       status-move:
         enabled: true
       # Only admins add/remove the backend/web/mobile tags
       stream-tag-change:
+        enabled: true
+      # Parents out of step with their subtasks are moved where their subtasks put them, and reported
+      parent-status:
+        enabled: true
+      # Only Story/Bug/Change/Feature in ready for testing; only mobile in ready_for_dev
+      status-placement:
         enabled: true
 
 clickup:
@@ -169,17 +179,15 @@ clickup:
         - task-types: [Bug, Change]
           field: maintenance
           value: "true"
-    # When a subtask's status changes, move its parent forward (see ParentStatusWorkflow). Never moves a parent
-    # backwards: it only changes if the target comes later in the list's status order than the current status.
+    # A parent's status follows its subtasks, forwards and backwards (see ParentStatusPolicy). Checked when a
+    # subtask's status changes or a subtask is created; works at any depth.
     parent-status:
       enabled: true
-      parent-types: [Story, Bug, Change, Feature]
-      # At least one subtask in one of these -> parent to "in progress"
-      started-statuses: [in progress, review, in development, blocked, ready for testing, complete]
-      started-target: in progress
-      # All subtasks in one of these -> parent to "ready for testing" (takes precedence)
-      done-statuses: [complete]
-      done-target: ready for testing
+      # Epics are left alone
+      parent-types: [Story, Bug, Change, Feature, Task]
+      # All subtasks complete -> ready for testing for these, complete for the others (a Task wrapping tasks)
+      testing-types: [Story, Bug, Change, Feature]
+      mobile-stream: mobile
     # When a tag is added to a task, create a subtask under it (see TagSubtaskWorkflow).
     # Fields are matched by name on the parent's list; missing fields are skipped with a warning.
     tag-subtasks:

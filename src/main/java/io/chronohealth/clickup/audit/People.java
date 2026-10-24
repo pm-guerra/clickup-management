@@ -36,6 +36,13 @@ public class People {
         return person(userId).map(Person::isEnforced).orElse(false);
     }
 
+    /**
+     * The status rules (placement, parents ahead of subtasks) don't apply to them: Pedro and the app itself.
+     */
+    public boolean isUnrestricted(Long userId) {
+        return person(userId).map(Person::isUnrestricted).orElse(false);
+    }
+
     public Optional<String> name(Long userId) {
         return person(userId).map(Person::name);
     }

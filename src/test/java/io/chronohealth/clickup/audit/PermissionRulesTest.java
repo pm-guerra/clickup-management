@@ -137,15 +137,16 @@ class PermissionRulesTest {
     static AuditProperties properties() {
         return new AuditProperties(true, Duration.ofDays(7), Duration.ofMinutes(5), Duration.ZERO, 5, List.of(),
                 "", "", "https://docs.example/rules",
-                List.of(new AuditProperties.Person("100796657", "Pedro", "admin", null, null),
-                        new AuditProperties.Person("106791322", "Martim", "tester", null, null),
-                        new AuditProperties.Person("112510284", "Luís", "dev", "backend", null),
-                        new AuditProperties.Person("278564675", "Vivek", "dev", "mobile", true)),
+                List.of(new AuditProperties.Person("100796657", "Pedro", "admin", null, null, null),
+                        new AuditProperties.Person("106791322", "Martim", "tester", null, null, null),
+                        new AuditProperties.Person("112510284", "Luís", "dev", "backend", null, null),
+                        new AuditProperties.Person("278564675", "Vivek", "dev", "mobile", true, null)),
                 List.of("Story", "Bug", "Change", "Epic"), List.of("backend", "web", "mobile"),
                 new AuditProperties.Scheduler(false),
                 new AuditProperties.Rules(
                         new AuditProperties.StreamTaskStatus(true, List.of("Story", "Bug", "Change"), List.of("Task"),
                                 List.of("to do", "in progress", "review", "complete", "waiting info")),
+                        new AuditProperties.Toggle(true), new AuditProperties.Toggle(true),
                         new AuditProperties.Toggle(true), new AuditProperties.Toggle(true)));
     }
 }

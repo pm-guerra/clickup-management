@@ -77,7 +77,10 @@ public class TaskKinds {
         return tag != null && streams.contains(lower(tag));
     }
 
-    private Optional<String> streamOf(Task streamTask) {
+    /**
+     * The stream a task belongs to, from its backend/web/mobile tag, else from its name.
+     */
+    public Optional<String> streamOf(Task streamTask) {
         if (streamTask.tags() != null) {
             Optional<String> fromTag = streamTask.tags().stream().map(Tag::name).filter(this::isStreamTag)
                     .map(TaskKinds::lower).findFirst();

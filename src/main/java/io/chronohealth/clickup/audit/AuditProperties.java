@@ -69,12 +69,17 @@ public record AuditProperties(
      * @param role   admin, tester or dev
      * @param stream  for devs: backend, web or mobile
      * @param enforce their forbidden changes are undone automatically (otherwise only reported)
+     * @param unrestricted the status rules (see StatusRulesGuard) don't apply to them
      */
     public record Person(@NotBlank String id, @NotBlank String name, @NotBlank String role, String stream,
-                         Boolean enforce) {
+                         Boolean enforce, Boolean unrestricted) {
 
         public boolean isEnforced() {
             return Boolean.TRUE.equals(enforce);
+        }
+
+        public boolean isUnrestricted() {
+            return Boolean.TRUE.equals(unrestricted);
         }
     }
 
@@ -82,7 +87,8 @@ public record AuditProperties(
     }
 
     public record Rules(@Valid @NotNull StreamTaskStatus streamTaskStatus, @Valid @NotNull Toggle statusMove,
-                        @Valid @NotNull Toggle streamTagChange) {
+                        @Valid @NotNull Toggle streamTagChange, @Valid @NotNull Toggle parentStatus,
+                        @Valid @NotNull Toggle statusPlacement) {
     }
 
     public record Toggle(boolean enabled) {

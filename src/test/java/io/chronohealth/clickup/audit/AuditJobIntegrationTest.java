@@ -63,7 +63,7 @@ class AuditJobIntegrationTest {
 
     @Test
     void reportsANewViolationOnceAndResolvesItWhenFixed() {
-        Task parent = task("bug", "Login bug", null, BUG, "in progress");
+        Task parent = task("bug", "Login bug", null, BUG, "ready for testing");
         Task wrong = task("s1", "Mobile | Login bug", "bug", null, "ready for testing");
         changed(parent, wrong);
 
@@ -82,7 +82,7 @@ class AuditJobIntegrationTest {
         verify(client, times(1)).sendChatMessage(anyString(), anyString(), anyString());
 
         // Fixed: resolved, nothing open.
-        changed(parent, task("s1", "Mobile | Login bug", "bug", null, "review"));
+        changed(task("bug", "Login bug", null, BUG, "review"), task("s1", "Mobile | Login bug", "bug", null, "review"));
         job.run();
         assertThat(repository.findOpen()).isEmpty();
     }
@@ -91,7 +91,7 @@ class AuditJobIntegrationTest {
     void aTaskThatCanNoLongerBeReadDoesNotStopTheRun() {
         when(client.getTask("gone")).thenThrow(new io.chronohealth.clickup.client.ClickUpApiException(404, "ITEM_013"));
         changed(task("s1", "Sub of deleted parent", "gone", null, "ready for testing"),
-                task("bug", "Login bug", null, BUG, "in progress"),
+                task("bug", "Login bug", null, BUG, "ready for testing"),
                 task("s2", "Mobile | Login bug", "bug", null, "ready for testing"));
 
         assertThat(job.run().newIssues()).isEqualTo(1);
@@ -101,7 +101,7 @@ class AuditJobIntegrationTest {
     void sendsNothingWhenEverythingIsAligned() {
         changed(task("bug", "Login bug", null, BUG, "in progress"),
                 task("s1", "Mobile | Login bug", "bug", null, "in progress"),
-                task("other", "Top-level task", null, null, "ready for testing"));
+                task("other", "Top-level task", null, null, "review"));
 
         assertThat(job.run().tasksChecked()).isEqualTo(3);
         verify(client, never()).sendChatMessage(anyString(), anyString(), anyString());
@@ -110,7 +110,7 @@ class AuditJobIntegrationTest {
     @Test
     void bugsAndChangesNestedUnderAStoryAreNotStreamTasks() {
         // A Bug filed as a subtask of a Story, waiting in "in lobby": valid, not a stream task.
-        changed(task("story", "Sign-up story", null, STORY, "in progress"),
+        changed(task("story", "Sign-up story", null, STORY, "to do"),
                 task("nested", "(web) Sign-up error", "story", BUG, "in lobby"));
 
         assertThat(job.run().newIssues()).isZero();
@@ -119,7 +119,7 @@ class AuditJobIntegrationTest {
     @Test
     void subtasksOfOtherTypesAreNotStreamTasks() {
         changed(task("epic", "Epic", null, 2002L, "in progress"),
-                task("s1", "Sub", "epic", null, "ready for testing"));
+                task("s1", "Sub", "epic", null, "approved"));
 
         assertThat(job.run().newIssues()).isZero();
     }
@@ -172,6 +172,13 @@ class AuditJobIntegrationTest {
     private void changed(Task... tasks) {
         when(client.getTasksUpdatedSince(anyString(), any(), anyList(), anyInt()))
                 .thenReturn(new TaskPage(List.of(tasks), true));
+        // Fetched with subtasks: the other changed tasks whose parent it is.
+        for (Task task : tasks) {
+            List<Task> subtasks = java.util.Arrays.stream(tasks).filter(t -> task.id().equals(t.parent())).toList();
+            when(client.getTask(task.id(), true)).thenReturn(new Task(task.id(), task.name(), task.parent(),
+                    task.customItemId(), task.status(), task.priority(), task.list(), task.assignees(), task.tags(),
+                    task.customFields(), subtasks));
+        }
     }
 
     private static Task task(String id, String name, String parent, Long type, String status) {
