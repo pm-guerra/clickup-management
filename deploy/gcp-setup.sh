@@ -3,7 +3,8 @@
 # Safe to re-run: every step skips what already exists.
 #
 # Requires: gcloud logged in with project owner/admin rights, and CLICKUP_CLIENT_SECRET in the environment
-# (e.g. `set -a; source .env; set +a` before running).
+# (e.g. `set -a; source .env; set +a` before running). AGENT_ROUTINE_TOKEN (the agent routine's bearer token) is
+# stored too when set.
 set -euo pipefail
 
 PROJECT=octo-agents
@@ -49,13 +50,15 @@ has_versions() {
 }
 
 echo "==> Secrets"
-for s in clickup-client-secret clickup-admin-api-key clickup-db-password "$TOKEN_SECRET" "$WEBHOOK_SECRET"; do
+for s in clickup-client-secret clickup-admin-api-key clickup-db-password agent-routine-token "$TOKEN_SECRET" "$WEBHOOK_SECRET"; do
   create_secret "$s"
 done
 has_versions clickup-client-secret \
   || printf '%s' "$CLICKUP_CLIENT_SECRET" | clean | gcloud secrets versions add clickup-client-secret --project "$PROJECT" --data-file=-
 has_versions clickup-admin-api-key \
   || openssl rand -hex 24 | clean | gcloud secrets versions add clickup-admin-api-key --project "$PROJECT" --data-file=-
+[ -z "${AGENT_ROUTINE_TOKEN:-}" ] \
+  || printf '%s' "$AGENT_ROUTINE_TOKEN" | clean | gcloud secrets versions add agent-routine-token --project "$PROJECT" --data-file=-
 has_versions clickup-db-password \
   || openssl rand -base64 30 | tr -d '\r\n/+=' | gcloud secrets versions add clickup-db-password --project "$PROJECT" --data-file=-
 
@@ -77,7 +80,7 @@ fi
 echo "==> Runtime service account permissions"
 gcloud projects add-iam-policy-binding "$PROJECT" \
   --member "serviceAccount:${RUNTIME_SA}" --role roles/cloudsql.client --condition=None >/dev/null
-for s in clickup-client-secret clickup-admin-api-key clickup-db-password "$TOKEN_SECRET" "$WEBHOOK_SECRET"; do
+for s in clickup-client-secret clickup-admin-api-key clickup-db-password agent-routine-token "$TOKEN_SECRET" "$WEBHOOK_SECRET"; do
   gcloud secrets add-iam-policy-binding "$s" --project "$PROJECT" \
     --member "serviceAccount:${RUNTIME_SA}" --role roles/secretmanager.secretAccessor --condition=None >/dev/null
 done

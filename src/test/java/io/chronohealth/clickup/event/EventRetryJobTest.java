@@ -7,6 +7,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import io.chronohealth.clickup.mention.ChatMentionPoller;
+import io.chronohealth.clickup.mention.MentionForwarder;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
@@ -46,6 +47,7 @@ class EventRetryJobTest {
     private EventRetryJob job(Duration pacing, Duration budget) {
         EventProperties properties = new EventProperties(8, Duration.ofMinutes(1), Duration.ofHours(6),
                 Duration.ofMinutes(5), 20, pacing, budget, Duration.ofDays(30), new EventProperties.Scheduler(false));
-        return new EventRetryJob(repository, processor, properties, Clock.systemUTC(), mock(ChatMentionPoller.class));
+        return new EventRetryJob(repository, processor, properties, Clock.systemUTC(), mock(ChatMentionPoller.class),
+                mock(MentionForwarder.class));
     }
 }

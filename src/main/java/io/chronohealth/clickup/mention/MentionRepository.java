@@ -61,6 +61,32 @@ public class MentionRepository {
     }
 
     /**
+     * Mentions not yet sent to the agent, oldest first, skipping those that failed too often or are too old.
+     */
+    public List<StoredMention> findToForward(int maxAttempts, Instant recordedAfter, int limit) {
+        return jdbc.sql("select " + COLUMNS + " from octo_mention where forwarded_at is null"
+                        + " and forward_attempts < :maxAttempts and recorded_at > :after order by id limit :limit")
+                .param("maxAttempts", maxAttempts)
+                .param("after", utc(recordedAfter))
+                .param("limit", limit)
+                .query(this::map)
+                .list();
+    }
+
+    public void markForwarded(long id) {
+        jdbc.sql("update octo_mention set forwarded_at = :now where id = :id")
+                .param("now", now())
+                .param("id", id)
+                .update();
+    }
+
+    public void recordForwardFailure(long id) {
+        jdbc.sql("update octo_mention set forward_attempts = forward_attempts + 1 where id = :id")
+                .param("id", id)
+                .update();
+    }
+
+    /**
      * When polling of the channel started; set to now on first use, so older messages are never new mentions.
      */
     @Transactional

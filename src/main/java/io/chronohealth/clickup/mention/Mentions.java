@@ -16,6 +16,12 @@ public final class Mentions {
      */
     private static final Pattern MARKDOWN_MENTION = Pattern.compile("#user_mention#(\\d+)");
 
+    /**
+     * The whole mention link, keeping its label: {@code [@Name](#user_mention#123)} becomes {@code @Name}.
+     */
+    private static final Pattern MARKDOWN_MENTION_LINK =
+            Pattern.compile("\\[(@[^\\]]*)]\\(#user_mention#\\d+\\)");
+
     private Mentions() {
     }
 
@@ -29,6 +35,13 @@ public final class Mentions {
             ids.add(Long.parseLong(matcher.group(1)));
         }
         return ids;
+    }
+
+    /**
+     * Chat markdown with mention links shown as plain {@code @Name}.
+     */
+    public static String toPlainText(String markdown) {
+        return markdown == null ? null : MARKDOWN_MENTION_LINK.matcher(markdown).replaceAll("$1");
     }
 
     /**

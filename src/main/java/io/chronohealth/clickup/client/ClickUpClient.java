@@ -4,15 +4,19 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import io.chronohealth.clickup.client.dto.ChatMessage;
 import io.chronohealth.clickup.client.dto.CustomFieldValue;
 import io.chronohealth.clickup.client.dto.CustomTaskType;
+import io.chronohealth.clickup.client.dto.Member;
 import io.chronohealth.clickup.client.dto.NewSubtask;
 import io.chronohealth.clickup.client.dto.Task;
+import io.chronohealth.clickup.client.dto.TaskComment;
 import io.chronohealth.clickup.client.dto.TaskStatus;
 import io.chronohealth.clickup.client.dto.TaskUpdate;
 import io.chronohealth.clickup.client.dto.User;
 import io.chronohealth.clickup.client.dto.Webhook;
 import io.chronohealth.clickup.client.dto.Workspace;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.web.client.RestClient;
@@ -122,6 +126,36 @@ public class ClickUpClient {
                 .uri(http.v3BaseUrl() + "/workspaces/{workspaceId}/chat/messages/{messageId}/replies?limit={limit}"
                         + "&content_format=text/md", workspaceId, messageId, limit)
                 .retrieve().body(ChatMessagesResponse.class).dataOrEmpty());
+    }
+
+    public String getChatChannelName(String workspaceId, String channelId) {
+        return http.execute("getChatChannel", () -> api().get()
+                .uri(http.v3BaseUrl() + "/workspaces/{workspaceId}/chat/channels/{channelId}", workspaceId, channelId)
+                .retrieve().body(ChatChannelResponse.class).data().name());
+    }
+
+    /**
+     * The newest comments of a task (ClickUp returns up to 25), text included. Replies to comments aren't listed.
+     */
+    public List<TaskComment> getTaskComments(String taskId) {
+        return http.execute("getTaskComments", () -> api().get().uri("/task/{taskId}/comment", taskId)
+                .retrieve().body(TaskCommentsResponse.class).commentsOrEmpty());
+    }
+
+    /**
+     * Usernames of the Workspace's members, by user id.
+     */
+    public Map<Long, String> getMemberNames(String workspaceId) {
+        List<TeamMembers> teams = http.execute("getMemberNames", () -> api().get().uri("/team")
+                .retrieve().body(TeamMembersResponse.class).teams());
+        Map<Long, String> names = new HashMap<>();
+        teams.stream()
+                .filter(team -> workspaceId.equals(team.id()) && team.members() != null)
+                .flatMap(team -> team.members().stream())
+                .map(TeamMember::user)
+                .filter(user -> user != null && user.id() != null && user.username() != null)
+                .forEach(user -> names.put(user.id(), user.username()));
+        return names;
     }
 
     /**
@@ -259,7 +293,23 @@ public class ClickUpClient {
     private record ChatChannelResponse(ChatChannel data) {
     }
 
-    private record ChatChannel(String id) {
+    private record ChatChannel(String id, String name) {
+    }
+
+    private record TaskCommentsResponse(List<TaskComment> comments) {
+
+        List<TaskComment> commentsOrEmpty() {
+            return comments == null ? List.of() : comments;
+        }
+    }
+
+    private record TeamMembersResponse(List<TeamMembers> teams) {
+    }
+
+    private record TeamMembers(String id, List<TeamMember> members) {
+    }
+
+    private record TeamMember(Member user) {
     }
 
     private record ChatMessageBody(String type, String content, String contentFormat) {

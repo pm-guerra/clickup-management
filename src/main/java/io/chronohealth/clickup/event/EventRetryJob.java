@@ -1,6 +1,7 @@
 package io.chronohealth.clickup.event;
 
 import io.chronohealth.clickup.mention.ChatMentionPoller;
+import io.chronohealth.clickup.mention.MentionForwarder;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
@@ -33,15 +34,17 @@ public class EventRetryJob {
     private final EventProperties properties;
     private final Clock clock;
     private final ChatMentionPoller chatMentions;
+    private final MentionForwarder mentionForwarder;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     public EventRetryJob(EventRepository repository, EventProcessor processor, EventProperties properties, Clock clock,
-                         ChatMentionPoller chatMentions) {
+                         ChatMentionPoller chatMentions, MentionForwarder mentionForwarder) {
         this.repository = repository;
         this.processor = processor;
         this.properties = properties;
         this.clock = clock;
         this.chatMentions = chatMentions;
+        this.mentionForwarder = mentionForwarder;
     }
 
     public RunResult run() {
@@ -51,7 +54,9 @@ public class EventRetryJob {
         }
         try {
             pollChatMentions();
-            return drain();
+            RunResult result = drain();
+            forwardMentions();
+            return result;
         } finally {
             running.set(false);
         }
@@ -65,6 +70,17 @@ public class EventRetryJob {
             chatMentions.poll();
         } catch (RuntimeException e) {
             log.warn("Chat mention poll failed: {}", e.getClass().getSimpleName());
+        }
+    }
+
+    /**
+     * Sends mentions found by the poll and by the events just processed (comments) to the agent.
+     */
+    private void forwardMentions() {
+        try {
+            mentionForwarder.forwardPending();
+        } catch (RuntimeException e) {
+            log.warn("Forwarding mentions failed: {}", e.getClass().getSimpleName());
         }
     }
 

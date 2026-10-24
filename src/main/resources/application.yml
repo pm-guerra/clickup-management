@@ -68,6 +68,15 @@ app:
       - 6-901522637869-8
     page-size: 50
     thread-lookback: 7d
+    # Each new mention is sent to the agent's routine with its text, read from ClickUp right before sending and never
+    # stored. Off while the token is empty (e.g. locally).
+    forward:
+      url: https://api.anthropic.com/v1/claude_code/routines/trig_01LbTta7542GUe2PaCBNzY7N/fire
+      token: ${AGENT_ROUTINE_TOKEN:}
+      beta-header: experimental-cc-routine-2026-04-01
+      max-attempts: 5
+      max-age: 1d
+      timeout: 30s
   # Hourly audit of tasks changed since the previous run (see AuditJob). Sends a ClickUp DM only for new issues.
   audit:
     enabled: true

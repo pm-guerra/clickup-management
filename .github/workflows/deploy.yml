@@ -66,4 +66,4 @@ jobs:
             --cpu-boost \
             --add-cloudsql-instances ${PROJECT_ID}:${REGION}:clickup-management-db \
             --env-vars-file deploy/cloudrun-env.yaml \
-            --set-secrets CLICKUP_CLIENT_SECRET=clickup-client-secret:latest,ADMIN_API_KEY=clickup-admin-api-key:latest,SPRING_DATASOURCE_PASSWORD=clickup-db-password:latest
+            --set-secrets CLICKUP_CLIENT_SECRET=clickup-client-secret:latest,ADMIN_API_KEY=clickup-admin-api-key:latest,SPRING_DATASOURCE_PASSWORD=clickup-db-password:latest,AGENT_ROUTINE_TOKEN=agent-routine-token:latest
