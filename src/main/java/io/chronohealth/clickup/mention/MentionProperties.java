@@ -14,7 +14,9 @@ import org.springframework.validation.annotation.Validated;
  * @param pageSize        newest top-level messages read per channel and poll
  * @param threadLookback  thread starters younger than this are checked for new replies
  * @param reaction        emoji (lower-case name) the bot adds to a chat message once its mention reached the agent;
- *                        empty for none. ClickUp's API can't react to task comments.
+ *                        empty for none
+ * @param commentReply    text the bot replies in a task comment's thread once its mention reached the agent (the
+ *                        API can't add reactions to comments); empty for none
  */
 @Validated
 @ConfigurationProperties("app.mentions")
@@ -24,7 +26,8 @@ public record MentionProperties(
         List<String> channels,
         @Min(1) int pageSize,
         @NotNull Duration threadLookback,
-        String reaction
+        String reaction,
+        String commentReply
 ) {
 
     public List<String> channelsOrEmpty() {

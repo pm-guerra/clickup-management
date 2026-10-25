@@ -141,6 +141,16 @@ public class ClickUpClient {
                 .retrieve().toBodilessEntity());
     }
 
+    /**
+     * Replies in the thread of a task comment, without notifying everyone on the task.
+     */
+    public void replyToComment(String commentId, String text) {
+        http.run("replyToComment", () -> api().post().uri("/comment/{commentId}/reply", commentId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(Map.of("comment_text", text, "notify_all", false))
+                .retrieve().toBodilessEntity());
+    }
+
     public String getChatChannelName(String workspaceId, String channelId) {
         return http.execute("getChatChannel", () -> api().get()
                 .uri(http.v3BaseUrl() + "/workspaces/{workspaceId}/chat/channels/{channelId}", workspaceId, channelId)

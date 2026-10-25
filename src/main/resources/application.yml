@@ -68,8 +68,10 @@ app:
       - 6-901522637869-8
     page-size: 50
     thread-lookback: 7d
-    # Added to a chat message once its mention reached the agent (task comments can't get reactions via the API)
+    # Once a mention reached the agent: this reaction on the chat message, and this reply in a task comment's thread
+    # (the API can't add reactions to comments)
     reaction: eyes
+    comment-reply: "👀"
     # Each new mention is sent to the agent's routine with its text, read from ClickUp right before sending and never
     # stored. Off while the token is empty (e.g. locally).
     forward:

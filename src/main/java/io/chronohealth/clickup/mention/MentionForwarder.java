@@ -110,17 +110,23 @@ public class MentionForwarder {
     }
 
     /**
-     * Reacts to the chat message so people see the bot picked it up. A failed reaction doesn't undo the send.
+     * Shows people the bot picked the mention up: a reaction on a chat message, a reply in a comment's thread (the
+     * API can't react to comments). A failure here doesn't undo the send.
      */
     private void acknowledge(StoredMention mention, Lookup lookup) {
-        String reaction = mentionProperties.reaction();
-        if (reaction == null || reaction.isBlank() || !ChatMentionPoller.SOURCE.equals(mention.source())) {
+        boolean chat = ChatMentionPoller.SOURCE.equals(mention.source());
+        String text = chat ? mentionProperties.reaction() : mentionProperties.commentReply();
+        if (text == null || text.isBlank()) {
             return;
         }
         try {
-            lookup.client.addChatReaction(lookup.workspaceId, mention.itemId(), reaction);
+            if (chat) {
+                lookup.client.addChatReaction(lookup.workspaceId, mention.itemId(), text);
+            } else {
+                lookup.client.replyToComment(mention.itemId(), text);
+            }
         } catch (RuntimeException e) {
-            log.warn("Couldn't react to the chat message of mention {}: {}", mention.id(), describe(e));
+            log.warn("Couldn't acknowledge mention {} ({}): {}", mention.id(), mention.source(), describe(e));
         }
     }
 
