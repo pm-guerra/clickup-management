@@ -80,6 +80,7 @@ public class MentionForwarder {
                 repository.markForwarded(mention.id());
                 sent++;
                 log.info("Forwarded mention {} ({}) to the agent", mention.id(), mention.source());
+                acknowledge(mention, lookup);
             } catch (RuntimeException e) {
                 repository.recordForwardFailure(mention.id());
                 log.warn("Couldn't forward mention {} ({}): {}", mention.id(), mention.source(), describe(e));
@@ -106,6 +107,21 @@ public class MentionForwarder {
                 new Author(mention.authorUserId(), lookup.username(mention.authorUserId())),
                 message == null ? null : Mentions.toPlainText(message.content()), date,
                 "https://app.clickup.com/" + lookup.workspaceId + "/chat/r/" + mention.channelId());
+    }
+
+    /**
+     * Reacts to the chat message so people see the bot picked it up. A failed reaction doesn't undo the send.
+     */
+    private void acknowledge(StoredMention mention, Lookup lookup) {
+        String reaction = mentionProperties.reaction();
+        if (reaction == null || reaction.isBlank() || !ChatMentionPoller.SOURCE.equals(mention.source())) {
+            return;
+        }
+        try {
+            lookup.client.addChatReaction(lookup.workspaceId, mention.itemId(), reaction);
+        } catch (RuntimeException e) {
+            log.warn("Couldn't react to the chat message of mention {}: {}", mention.id(), describe(e));
+        }
     }
 
     private void send(AgentMention payload) {

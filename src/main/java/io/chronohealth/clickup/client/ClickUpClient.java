@@ -128,6 +128,19 @@ public class ClickUpClient {
                 .retrieve().body(ChatMessagesResponse.class).dataOrEmpty());
     }
 
+    /**
+     * Adds an emoji reaction (lower-case name, e.g. "eyes") to a chat message or thread reply. ClickUp answers 400
+     * if it's already there.
+     */
+    public void addChatReaction(String workspaceId, String messageId, String reaction) {
+        http.run("addChatReaction", () -> api().post()
+                .uri(http.v3BaseUrl() + "/workspaces/{workspaceId}/chat/messages/{messageId}/reactions",
+                        workspaceId, messageId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(new ChatReactionBody(reaction))
+                .retrieve().toBodilessEntity());
+    }
+
     public String getChatChannelName(String workspaceId, String channelId) {
         return http.execute("getChatChannel", () -> api().get()
                 .uri(http.v3BaseUrl() + "/workspaces/{workspaceId}/chat/channels/{channelId}", workspaceId, channelId)
@@ -313,6 +326,9 @@ public class ClickUpClient {
     }
 
     private record ChatMessageBody(String type, String content, String contentFormat) {
+    }
+
+    private record ChatReactionBody(String reaction) {
     }
 
     private record ChatMessagesResponse(List<ChatMessage> data) {
