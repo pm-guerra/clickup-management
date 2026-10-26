@@ -126,6 +126,13 @@ public class TagSubtaskWorkflow implements EventHandler {
             if (!typeMatches(fixed.parentTypesOrEmpty(), parentType)) {
                 continue;
             }
+            if (fixed.isFromParent()) {
+                listField(parent, fixed.field(), rule)
+                        .filter(CustomField::hasValue)
+                        .flatMap(field -> valueMapper.toWriteValue(field).map(v -> new CustomFieldValue(field.id(), v)))
+                        .ifPresent(values::add);
+                continue;
+            }
             listField(parent, fixed.field(), rule).ifPresent(field ->
                     values.add(new CustomFieldValue(field.id(), valueMapper.fromConfig(field, fixed.value()))));
         }

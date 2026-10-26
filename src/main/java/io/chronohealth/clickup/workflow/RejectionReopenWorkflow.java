@@ -19,12 +19,12 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
 /**
- * When testing rejects a task (a Story/Bug/Change goes from "ready for testing" back to "in progress" or "to do"),
- * reopens its completed subtasks by moving them to "waiting info".
+ * When testing rejects a task (e.g. a Story/Bug goes from "in testing" back to "in progress" or "to do"), reopens its
+ * completed subtasks by moving them to "waiting info". Defects inside it keep their own lifecycle and aren't touched.
  * <p>
  * The transition is read from the status history item's before/after, so only that exact move triggers it.
- * Idempotent: a retry finds the subtasks already reopened. No loop with {@link ParentStatusWorkflow}: that one only
- * moves parents forward, and "waiting info" isn't a started status.
+ * Idempotent: a retry finds the subtasks already reopened. No loop with {@link ParentStatusWorkflow}: it leaves a
+ * parent alone while a subtask is in "waiting info".
  */
 @Component
 public class RejectionReopenWorkflow implements EventHandler {
@@ -63,9 +63,12 @@ public class RejectionReopenWorkflow implements EventHandler {
         }
 
         Set<String> reopen = normalized(config.reopenStatusesOrEmpty());
+        Set<String> ignored = normalized(config.ignoredSubtaskTypesOrEmpty());
         List<Task> toReopen = task.subtasksOrEmpty().stream()
                 .filter(s -> s.status() != null && s.status().status() != null)
                 .filter(s -> reopen.contains(normalize(s.status().status())))
+                .filter(s -> ignored.isEmpty() || taskTypes.typeName(client, event.workspaceId(), s)
+                        .map(t -> !ignored.contains(normalize(t))).orElse(true))
                 .toList();
         for (Task subtask : toReopen) {
             client.updateTask(subtask.id(), TaskUpdate.status(config.reopenTo()));
@@ -87,7 +90,7 @@ public class RejectionReopenWorkflow implements EventHandler {
     }
 
     /**
-     * ClickUp sends a status as an object ({@code {"status": "ready for testing", ...}}) or, defensively, a string.
+     * ClickUp sends a status as an object ({@code {"status": "in testing", ...}}) or, defensively, a string.
      */
     private static Optional<String> statusName(JsonNode node) {
         if (node == null || node.isNull() || node.isMissingNode()) {

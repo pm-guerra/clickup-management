@@ -19,7 +19,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * When a task is created, sets custom fields to default values depending on its type, e.g. maintenance = true for
- * every new Bug or Change.
+ * every new Bug or Change, or a new Defect's maintenance copied from the task it's in.
  * <p>
  * Idempotent (a field that already has the value is left alone) and loop-free: setting a field produces a
  * {@code taskUpdated} event, which no workflow subscribes to.
@@ -70,12 +70,30 @@ public class CreateDefaultsWorkflow implements EventHandler {
             log.warn("Field '{}' doesn't exist on the list of new {} {}; skipping", rule.field(), type, task.id());
             return;
         }
-        Object value = valueMapper.fromConfig(field.get(), rule.value());
-        if (field.get().hasValue() && valueMapper.toWriteValue(field.get()).map(v -> Objects.equals(v, value)).orElse(false)) {
+        Optional<Object> value = rule.isFromParent()
+                ? parentValue(client, task, rule.field())
+                : Optional.of(valueMapper.fromConfig(field.get(), rule.value()));
+        if (value.isEmpty()) {
             return;
         }
-        client.setCustomField(task.id(), field.get().id(), value);
-        log.info("Set '{}' on new {} {}", rule.field(), type, task.id());
+        if (field.get().hasValue()
+                && valueMapper.toWriteValue(field.get()).map(v -> Objects.equals(v, value.get())).orElse(false)) {
+            return;
+        }
+        client.setCustomField(task.id(), field.get().id(), value.get());
+        log.info("Set '{}' on new {} {}{}", rule.field(), type, task.id(), rule.isFromParent() ? " from its parent" : "");
+    }
+
+    /**
+     * The parent's value of the field; empty for a top-level task or a parent without a value.
+     */
+    private Optional<Object> parentValue(ClickUpClient client, Task task, String fieldName) {
+        if (task.parent() == null) {
+            return Optional.empty();
+        }
+        return client.getTask(task.parent()).customFieldNamed(fieldName)
+                .filter(CustomField::hasValue)
+                .flatMap(valueMapper::toWriteValue);
     }
 
     private static boolean matches(String type, List<String> allowed) {

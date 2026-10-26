@@ -88,10 +88,27 @@ public record AuditProperties(
 
     public record Rules(@Valid @NotNull StreamTaskStatus streamTaskStatus, @Valid @NotNull Toggle statusMove,
                         @Valid @NotNull Toggle streamTagChange, @Valid @NotNull Toggle parentStatus,
-                        @Valid @NotNull Toggle statusPlacement) {
+                        @Valid @NotNull Toggle statusPlacement, @Valid @NotNull Defects defects) {
     }
 
     public record Toggle(boolean enabled) {
+    }
+
+    /**
+     * @param enabled     check Defects at all
+     * @param types       the Defect task type(s)
+     * @param parentTypes a Defect must be inside one of these (Feature, Bug, Change)
+     * @param clearPoints remove sprint points from Defects: they aren't estimated
+     */
+    public record Defects(boolean enabled, List<String> types, List<String> parentTypes, boolean clearPoints) {
+
+        public List<String> typesOrEmpty() {
+            return types == null ? List.of() : types;
+        }
+
+        public List<String> parentTypesOrEmpty() {
+            return parentTypes == null ? List.of() : parentTypes;
+        }
     }
 
     /**

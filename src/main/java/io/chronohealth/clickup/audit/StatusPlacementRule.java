@@ -7,7 +7,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Reports tasks sitting in a status they may not be in (see {@link StatusPlacement}), e.g. moved there before the
- * rule existed. Stream tasks in ready for testing are already reported by {@link StreamTaskStatusRule}.
+ * rule existed. Stream tasks in in testing are already reported by {@link StreamTaskStatusRule}.
  */
 @Component
 public class StatusPlacementRule implements AuditRule {
@@ -39,11 +39,11 @@ public class StatusPlacementRule implements AuditRule {
         }
         String status = task.status().status();
         String normalized = ParentStatusPolicy.normalize(status);
-        if (!ParentStatusPolicy.READY_FOR_TESTING.equals(normalized)
+        if (!ParentStatusPolicy.IN_TESTING.equals(normalized)
                 && !ParentStatusPolicy.READY_FOR_DEV.equals(normalized)) {
             return Optional.empty();
         }
-        if (ParentStatusPolicy.READY_FOR_TESTING.equals(normalized)
+        if (ParentStatusPolicy.IN_TESTING.equals(normalized)
                 && kinds.classify(task, context).kind() == TaskKinds.Kind.STREAM) {
             return Optional.empty();
         }

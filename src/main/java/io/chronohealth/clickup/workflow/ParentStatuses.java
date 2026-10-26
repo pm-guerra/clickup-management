@@ -28,14 +28,15 @@ public class ParentStatuses {
     }
 
     /**
-     * Whether the task's status follows its subtasks (Story/Bug/Change/Feature/Task; not Epics).
+     * Whether the task's status follows its subtasks (Story/Bug/Change/Feature/Defect/Task; not Epics). Subtasks
+     * of the ignored types (Defects) don't count.
      */
     public boolean manages(Task task, AuditContext context) {
         return config.enabled() && isOneOf(context.typeName(task), config.parentTypesOrEmpty());
     }
 
     /**
-     * Whether the task is tested as a whole, i.e. may be in ready for testing.
+     * Whether the task is tested as a whole, i.e. may be in in testing.
      */
     public boolean isTestingType(Task task, AuditContext context) {
         return isOneOf(context.typeName(task), config.testingTypesOrEmpty());
@@ -71,6 +72,7 @@ public class ParentStatuses {
         // Sub-subtasks inside a mobile stream task are mobile too, tagged or not.
         boolean parentMobile = isMobileStream(kinds.classify(parent, context));
         return parent.subtasksOrEmpty().stream()
+                .filter(child -> !isOneOf(context.typeName(child), config.ignoredChildTypesOrEmpty()))
                 .map(child -> new Child(child.status() == null ? null : child.status().status(),
                         parentMobile || kinds.streamOf(child).filter(config.mobileStream()::equalsIgnoreCase)
                                 .isPresent()))

@@ -54,10 +54,10 @@ class ParentStatusPolicyTest {
 
     @Test
     void allCompleteMeansReadyForTestingOrCompleteForWrappers() {
-        assertThat(derive("complete", "complete")).isEqualTo("ready for testing");
+        assertThat(derive("complete", "complete")).isEqualTo("in testing");
         assertThat(ParentStatusPolicy.derive(List.of(new Child("complete", false)), false)).contains("complete");
         // A nested Bug already in testing counts as complete.
-        assertThat(derive("ready for testing", "complete")).isEqualTo("ready for testing");
+        assertThat(derive("in testing", "complete")).isEqualTo("in testing");
     }
 
     @Test
@@ -76,7 +76,7 @@ class ParentStatusPolicyTest {
 
     @Test
     void movesForwardsAndBackwards() {
-        assertThat(ParentStatusPolicy.move("ready for testing", "review")).contains("review");
+        assertThat(ParentStatusPolicy.move("in testing", "review")).contains("review");
         assertThat(ParentStatusPolicy.move("in progress", "review")).contains("review");
         assertThat(ParentStatusPolicy.move("complete", "in progress")).contains("in progress");
         assertThat(ParentStatusPolicy.move("in progress", "to do")).contains("to do");
@@ -88,18 +88,18 @@ class ParentStatusPolicyTest {
     void leavesTestersStagesAlone() {
         assertThat(ParentStatusPolicy.move("in lobby", "to do")).isEmpty();
         assertThat(ParentStatusPolicy.move("waiting info", "pending")).isEmpty();
-        assertThat(ParentStatusPolicy.move("approved", "ready for testing")).isEmpty();
-        assertThat(ParentStatusPolicy.move("complete", "ready for testing")).isEmpty();
+        assertThat(ParentStatusPolicy.move("approved", "in testing")).isEmpty();
+        assertThat(ParentStatusPolicy.move("complete", "in testing")).isEmpty();
     }
 
     @Test
     void parentAheadOfSubtasks() {
-        assertThat(ParentStatusPolicy.isAhead("ready for testing", "review")).isTrue();
+        assertThat(ParentStatusPolicy.isAhead("in testing", "review")).isTrue();
         assertThat(ParentStatusPolicy.isAhead("in progress", "to do")).isTrue();
         assertThat(ParentStatusPolicy.isAhead("in progress", "review")).isFalse();
         assertThat(ParentStatusPolicy.isAhead("to do", "pending")).isFalse();
-        assertThat(ParentStatusPolicy.isAhead("approved", "ready for testing")).isFalse();
-        assertThat(ParentStatusPolicy.isAhead("complete", "ready for testing")).isFalse();
+        assertThat(ParentStatusPolicy.isAhead("approved", "in testing")).isFalse();
+        assertThat(ParentStatusPolicy.isAhead("complete", "in testing")).isFalse();
     }
 
     private static String derive(String... statuses) {

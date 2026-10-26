@@ -97,7 +97,7 @@ app:
     rules-doc-url: https://app.clickup.com/90152153739/docs/2kyqtcmb-7115
     # Who's who for the permission rules (ClickUp user ids). Anyone not listed has no permissions.
     people:
-      # unrestricted: the status rules (ready for testing / ready_for_dev placement, parents ahead of subtasks)
+      # unrestricted: the status rules (in testing / ready_for_dev placement, parents ahead of subtasks)
       # don't apply to them; everyone else's moves that break them are undone.
       # The app itself acts as Octo bot (it authorized the OAuth app); its automatic changes are always allowed
       - { id: "106723346", name: Octo bot, role: admin, unrestricted: true }
@@ -112,8 +112,8 @@ app:
       - { id: "308507562", name: Sebastian, role: dev, stream: mobile, enforce: true }
       - { id: "106773419", name: Nubelson, role: dev, stream: web, enforce: true }
       - { id: "106655756", name: Danylo, role: dev, stream: web }
-    # Testers move these; devs move the stream tasks under Stories/Bugs/Changes
-    main-task-types: [Story, Bug, Change, Feature, Epic]
+    # Testers move these; devs move the stream tasks under them
+    main-task-types: [Story, Bug, Change, Feature, Defect, Epic]
     streams: [backend, web, mobile]
     scheduler:
       # Local in-process trigger; on Cloud Run, Cloud Scheduler calls POST /admin/audit/run hourly.
@@ -121,12 +121,12 @@ app:
     rules:
       stream-task-status:
         enabled: true
-        parent-types: [Story, Bug, Change, Feature]
+        parent-types: [Story, Bug, Change, Feature, Defect]
         # Only Task-type subtasks are stream tasks; nested Bugs/Changes/Stories are not
         stream-types: [Task]
-        # ready_for_dev is further limited to mobile (status-placement)
+        # ready_for_dev is further limited to mobile (status-placement); on hold is left to people
         allowed-statuses: [pending, to do, in progress, blocked, review, ready_for_dev, in development, complete,
-                           waiting info]
+                           waiting info, on hold]
       # Main tasks: testers/admins move them; stream tasks: their stream's devs/admins (checked on each change)
       status-move:
         enabled: true
@@ -136,9 +136,15 @@ app:
       # Parents out of step with their subtasks are moved where their subtasks put them, and reported
       parent-status:
         enabled: true
-      # Only Story/Bug/Change/Feature in ready for testing; only mobile in ready_for_dev
+      # Only Story/Bug/Change/Feature/Defect in in testing; only mobile in ready_for_dev
       status-placement:
         enabled: true
+      # Defects: only inside a Feature, Bug or Change, and never estimated (sprint points are cleared)
+      defects:
+        enabled: true
+        types: [Defect]
+        parent-types: [Feature, Bug, Change]
+        clear-points: true
 
 clickup:
   client-id: ${CLICKUP_CLIENT_ID}
@@ -164,18 +170,19 @@ clickup:
     # (see PrioritySyncWorkflow).
     priority-sync:
       enabled: true
-      parent-types: [Story, Bug, Change, Feature]
+      parent-types: [Story, Bug, Change, Feature, Defect]
       when-statuses: [to do]
       subtask-types: [Task]
-    # When testing rejects a task (ready for testing -> in progress / to do), reopen its completed subtasks
-    # (see RejectionReopenWorkflow).
+    # When testing rejects a task (in testing -> in progress / to do), reopen its completed subtasks
+    # (see RejectionReopenWorkflow). Defects inside it have their own lifecycle and aren't reopened.
     rejection-reopen:
       enabled: true
-      task-types: [Story, Bug, Change, Feature]
-      from-statuses: [ready for testing]
+      task-types: [Story, Bug, Change, Feature, Defect]
+      from-statuses: [in testing]
       to-statuses: [in progress, to do]
       reopen-statuses: [complete]
       reopen-to: waiting info
+      ignored-subtask-types: [Defect]
     # When a task is created, set field defaults by task type (see CreateDefaultsWorkflow).
     create-defaults:
       enabled: true
@@ -183,22 +190,28 @@ clickup:
         - task-types: [Bug, Change]
           field: maintenance
           value: "true"
+        # A Defect inherits maintenance from the Feature/Bug/Change it's in
+        - task-types: [Defect]
+          field: maintenance
+          from-parent: true
     # A parent's status follows its subtasks, forwards and backwards (see ParentStatusPolicy). Checked when a
     # subtask's status changes or a subtask is created; works at any depth.
     parent-status:
       enabled: true
       # Epics are left alone
-      parent-types: [Story, Bug, Change, Feature, Task]
-      # All subtasks complete -> ready for testing for these, complete for the others (a Task wrapping tasks)
-      testing-types: [Story, Bug, Change, Feature]
+      parent-types: [Story, Bug, Change, Feature, Defect, Task]
+      # All subtasks complete -> in testing for these, complete for the others (a Task wrapping tasks)
+      testing-types: [Story, Bug, Change, Feature, Defect]
       mobile-stream: mobile
+      # Defects have their own lifecycle: they don't move the task they're in
+      ignored-child-types: [Defect]
     # When a tag is added to a task, create a subtask under it (see TagSubtaskWorkflow).
     # Fields are matched by name on the parent's list; missing fields are skipped with a warning.
     tag-subtasks:
       enabled: true
       rules:
         - tag: backend
-          task-types: [Story, Bug, Change, Feature]
+          task-types: [Story, Bug, Change, Feature, Defect]
           title-prefix: "Backend | "
           status: to do
           tags: [backend]
@@ -206,11 +219,14 @@ clickup:
             - field: maintenance
               value: "true"
               parent-types: [Bug, Change]
+            - field: maintenance
+              from-parent: true
+              parent-types: [Defect]
           copy-fields:
             - Pre Go Live
           copy-priority: true
         - tag: web
-          task-types: [Story, Bug, Change, Feature]
+          task-types: [Story, Bug, Change, Feature, Defect]
           title-prefix: "Web | "
           status: to do
           tags: [web]
@@ -218,11 +234,14 @@ clickup:
             - field: maintenance
               value: "true"
               parent-types: [Bug, Change]
+            - field: maintenance
+              from-parent: true
+              parent-types: [Defect]
           copy-fields:
             - Pre Go Live
           copy-priority: true
         - tag: mobile
-          task-types: [Story, Bug, Change, Feature]
+          task-types: [Story, Bug, Change, Feature, Defect]
           title-prefix: "Mobile | "
           status: to do
           tags: [mobile]
@@ -230,6 +249,9 @@ clickup:
             - field: maintenance
               value: "true"
               parent-types: [Bug, Change]
+            - field: maintenance
+              from-parent: true
+              parent-types: [Defect]
           copy-fields:
             - Pre Go Live
           copy-priority: true

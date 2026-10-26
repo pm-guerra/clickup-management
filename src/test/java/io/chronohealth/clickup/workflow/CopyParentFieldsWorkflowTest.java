@@ -93,10 +93,10 @@ class CopyParentFieldsWorkflowTest {
                 new ClickUpProperties.RateLimit(0, Duration.ofSeconds(1)),
                 new ClickUpProperties.Workflows(new ClickUpProperties.CopyParentFields(true, mappings, parentType),
                         new ClickUpProperties.TagSubtasks(false, List.of()),
-                        new ClickUpProperties.ParentStatus(false, List.of(), List.of(), "mobile"),
+                        new ClickUpProperties.ParentStatus(false, List.of(), List.of(), "mobile", List.of("Defect")),
                         new ClickUpProperties.CreateDefaults(false, List.of()),
                         new ClickUpProperties.RejectionReopen(false, List.of(), List.of(), List.of(), List.of(),
-                                "waiting info"),
+                                "waiting info", List.of()),
                         new ClickUpProperties.PrioritySync(false, List.of(), List.of(), List.of())));
         return new CopyParentFieldsWorkflow(factory, new CustomFieldValueMapper(), properties, MAPPER);
     }

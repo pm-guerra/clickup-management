@@ -47,7 +47,7 @@ public class Permissions {
 
     public String whoMayMove(Classification kind) {
         return kind.kind() == Kind.MAIN
-                ? "Only testers and admins may move Stories/Bugs/Changes/Epics."
+                ? "Only testers and admins may move Stories/Features/Bugs/Changes/Defects/Epics."
                 : "Only " + kind.stream().map(s -> s + " devs").orElse("devs") + " and admins may move this stream task.";
     }
 

@@ -18,11 +18,12 @@ public final class ParentStatusTestSupport {
                 Duration.ofSeconds(1), Duration.ofSeconds(1), new ClickUpProperties.RateLimit(0, Duration.ofSeconds(1)),
                 new ClickUpProperties.Workflows(new ClickUpProperties.CopyParentFields(false, "{}", ""),
                         new ClickUpProperties.TagSubtasks(false, List.of()),
-                        new ClickUpProperties.ParentStatus(true, List.of("Story", "Bug", "Change", "Feature", "Task"),
-                                List.of("Story", "Bug", "Change", "Feature"), "mobile"),
+                        new ClickUpProperties.ParentStatus(true,
+                                List.of("Story", "Bug", "Change", "Feature", "Defect", "Task"),
+                                List.of("Story", "Bug", "Change", "Feature", "Defect"), "mobile", List.of("Defect")),
                         new ClickUpProperties.CreateDefaults(false, List.of()),
                         new ClickUpProperties.RejectionReopen(false, List.of(), List.of(), List.of(), List.of(),
-                                "waiting info"),
+                                "waiting info", List.of()),
                         new ClickUpProperties.PrioritySync(false, List.of(), List.of(), List.of())));
     }
 
@@ -37,6 +38,7 @@ public final class ParentStatusTestSupport {
                         new AuditProperties.StreamTaskStatus(true, List.of("Story", "Bug", "Change", "Feature"),
                                 List.of("Task"), List.of("to do", "in progress", "review", "complete")),
                         new AuditProperties.Toggle(true), new AuditProperties.Toggle(true),
-                        new AuditProperties.Toggle(true), new AuditProperties.Toggle(true)));
+                        new AuditProperties.Toggle(true), new AuditProperties.Toggle(true),
+                        new AuditProperties.Defects(true, List.of("Defect"), List.of("Feature", "Bug", "Change"), true)));
     }
 }

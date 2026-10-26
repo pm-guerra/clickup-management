@@ -63,8 +63,8 @@ class AuditJobIntegrationTest {
 
     @Test
     void reportsANewViolationOnceAndResolvesItWhenFixed() {
-        Task parent = task("bug", "Login bug", null, BUG, "ready for testing");
-        Task wrong = task("s1", "Mobile | Login bug", "bug", null, "ready for testing");
+        Task parent = task("bug", "Login bug", null, BUG, "in testing");
+        Task wrong = task("s1", "Mobile | Login bug", "bug", null, "in testing");
         changed(parent, wrong);
 
         assertThat(job.run().newIssues()).isEqualTo(1);
@@ -73,7 +73,7 @@ class AuditJobIntegrationTest {
         assertThat(message.getValue())
                 .contains("1 new issue")
                 .contains("[Mobile | Login bug](https://app.clickup.com/t/s1)")
-                .contains("'ready for testing'")
+                .contains("'in testing'")
                 .contains("📖 Rules: [How we work](https://app.clickup.com/");
 
         // Still wrong on the next run: not reported again.
@@ -90,9 +90,9 @@ class AuditJobIntegrationTest {
     @Test
     void aTaskThatCanNoLongerBeReadDoesNotStopTheRun() {
         when(client.getTask("gone")).thenThrow(new io.chronohealth.clickup.client.ClickUpApiException(404, "ITEM_013"));
-        changed(task("s1", "Sub of deleted parent", "gone", null, "ready for testing"),
-                task("bug", "Login bug", null, BUG, "ready for testing"),
-                task("s2", "Mobile | Login bug", "bug", null, "ready for testing"));
+        changed(task("s1", "Sub of deleted parent", "gone", null, "in testing"),
+                task("bug", "Login bug", null, BUG, "in testing"),
+                task("s2", "Mobile | Login bug", "bug", null, "in testing"));
 
         assertThat(job.run().newIssues()).isEqualTo(1);
     }

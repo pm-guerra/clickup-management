@@ -69,7 +69,7 @@ class PermissionRulesTest {
     void devsMoveTheirStreamTasksToWaitingInfoButNeverMainTasks() {
         assertThat(statusRule.check(move("mobile", VIVEK, "in progress", "waiting info"), context)).isEmpty();
         assertThat(statusRule.check(move("bug", LUIS, "in progress", "waiting info"), context)).singleElement()
-                .asString().contains("Only testers and admins may move Stories/Bugs/Changes/Epics.");
+                .asString().contains("Only testers and admins may move Stories/Features/Bugs/Changes/Defects/Epics.");
     }
 
     @Test
@@ -147,6 +147,7 @@ class PermissionRulesTest {
                         new AuditProperties.StreamTaskStatus(true, List.of("Story", "Bug", "Change"), List.of("Task"),
                                 List.of("to do", "in progress", "review", "complete", "waiting info")),
                         new AuditProperties.Toggle(true), new AuditProperties.Toggle(true),
-                        new AuditProperties.Toggle(true), new AuditProperties.Toggle(true)));
+                        new AuditProperties.Toggle(true), new AuditProperties.Toggle(true),
+                        new AuditProperties.Defects(true, List.of("Defect"), List.of("Feature", "Bug", "Change"), true)));
     }
 }

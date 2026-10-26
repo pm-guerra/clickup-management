@@ -18,8 +18,14 @@ public record Task(
         List<User> assignees,
         List<Tag> tags,
         List<CustomField> customFields,
-        List<Task> subtasks
+        List<Task> subtasks,
+        Double points
 ) {
+
+    public Task(String id, String name, String parent, Long customItemId, TaskStatus status, Priority priority,
+                IdRef list, List<User> assignees, List<Tag> tags, List<CustomField> customFields, List<Task> subtasks) {
+        this(id, name, parent, customItemId, status, priority, list, assignees, tags, customFields, subtasks, null);
+    }
 
     public List<CustomField> customFieldsOrEmpty() {
         return customFields == null ? List.of() : customFields;

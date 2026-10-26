@@ -233,6 +233,18 @@ public class ClickUpClient {
     }
 
     /**
+     * Removes a task's sprint points.
+     */
+    public void clearPoints(String taskId) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("points", null);
+        http.run("clearPoints", () -> api().put().uri("/task/{taskId}", taskId)
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve().toBodilessEntity());
+    }
+
+    /**
      * Sets a custom field. The {@code value} shape depends on the field type; see ClickUp's "Set Custom Field Value" docs.
      */
     public void setCustomField(String taskId, String fieldId, Object value) {

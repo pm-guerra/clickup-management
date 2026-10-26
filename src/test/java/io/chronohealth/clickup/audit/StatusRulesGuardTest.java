@@ -57,9 +57,9 @@ class StatusRulesGuardTest {
 
     @Test
     void undoesParentMovedAheadOfItsSubtasks() {
-        bug("ready for testing", task("s1", "bug", null, "review"), task("s2", "bug", null, "complete"));
+        bug("in testing", task("s1", "bug", null, "review"), task("s2", "bug", null, "complete"));
 
-        assertThat(guard.blocks(move("bug", MARTIM, "review", "ready for testing"))).isTrue();
+        assertThat(guard.blocks(move("bug", MARTIM, "review", "in testing"))).isTrue();
 
         verify(client).updateTask("bug", TaskUpdate.status("review"));
         verify(client).addCommentMentioning(eq("bug"), eq(MARTIM), contains("can't be ahead of its subtasks"));
@@ -69,7 +69,7 @@ class StatusRulesGuardTest {
     void allowsMovingAParentBack() {
         bug("in progress", task("s1", "bug", null, "complete"));
 
-        assertThat(guard.blocks(move("bug", MARTIM, "ready for testing", "in progress"))).isFalse();
+        assertThat(guard.blocks(move("bug", MARTIM, "in testing", "in progress"))).isFalse();
 
         verify(client, never()).updateTask(anyString(), any());
     }
@@ -77,19 +77,19 @@ class StatusRulesGuardTest {
     @Test
     void undoesStreamTaskMovedToReadyForTesting() {
         bug("in progress");
-        stream("web", "ready for testing");
+        stream("web", "in testing");
 
-        assertThat(guard.blocks(move("web", MARTIM, "complete", "ready for testing"))).isTrue();
+        assertThat(guard.blocks(move("web", MARTIM, "complete", "in testing"))).isTrue();
 
         verify(client).updateTask("web", TaskUpdate.status("complete"));
-        verify(client).addCommentMentioning(eq("web"), eq(MARTIM), contains("can be in 'ready for testing'"));
+        verify(client).addCommentMentioning(eq("web"), eq(MARTIM), contains("can be in 'in testing'"));
     }
 
     @Test
     void undoesEpicMovedToReadyForTesting() {
-        when(client.getTask("epic")).thenReturn(task("epic", null, EPIC, "ready for testing"));
+        when(client.getTask("epic")).thenReturn(task("epic", null, EPIC, "in testing"));
 
-        assertThat(guard.blocks(move("epic", MARTIM, "in progress", "ready for testing"))).isTrue();
+        assertThat(guard.blocks(move("epic", MARTIM, "in progress", "in testing"))).isTrue();
 
         verify(client).updateTask("epic", TaskUpdate.status("in progress"));
     }
@@ -108,11 +108,11 @@ class StatusRulesGuardTest {
 
     @Test
     void pedroIsNotRestricted() {
-        bug("ready for testing", task("s1", "bug", null, "review"));
-        when(client.getTask("epic")).thenReturn(task("epic", null, EPIC, "ready for testing"));
+        bug("in testing", task("s1", "bug", null, "review"));
+        when(client.getTask("epic")).thenReturn(task("epic", null, EPIC, "in testing"));
 
-        assertThat(guard.blocks(move("bug", PEDRO, "review", "ready for testing"))).isFalse();
-        assertThat(guard.blocks(move("epic", PEDRO, "in progress", "ready for testing"))).isFalse();
+        assertThat(guard.blocks(move("bug", PEDRO, "review", "in testing"))).isFalse();
+        assertThat(guard.blocks(move("epic", PEDRO, "in progress", "in testing"))).isFalse();
 
         verify(client, never()).updateTask(anyString(), any());
         verify(client, never()).addCommentMentioning(anyString(), anyLong(), anyString());

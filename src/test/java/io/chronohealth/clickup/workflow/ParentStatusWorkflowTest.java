@@ -30,9 +30,10 @@ class ParentStatusWorkflowTest {
      * The Product list's statuses, in board order.
      */
     private static final List<String> ORDER = List.of("pending", "in lobby", "waiting info", "to do", "in progress",
-            "blocked", "review", "ready_for_dev", "in development", "ready for testing", "approved", "complete");
+            "blocked", "review", "ready_for_dev", "in development", "in testing", "approved", "complete");
     private static final long BUG = 1001L;
     private static final long EPIC = 1003L;
+    private static final long DEFECT = 1010L;
 
     private final ClickUpClientFactory factory = mock(ClickUpClientFactory.class);
     private final ClickUpClient client = mock(ClickUpClient.class);
@@ -46,7 +47,8 @@ class ParentStatusWorkflowTest {
     void setUp() {
         when(factory.forWorkspace("ws")).thenReturn(client);
         when(client.getCustomTaskTypes("ws")).thenReturn(List.of(
-                new CustomTaskType(BUG, "Bug"), new CustomTaskType(EPIC, "Epic")));
+                new CustomTaskType(BUG, "Bug"), new CustomTaskType(EPIC, "Epic"),
+                new CustomTaskType(DEFECT, "Defect")));
         when(client.getListStatuses("list")).thenReturn(IntStream.range(0, ORDER.size())
                 .mapToObj(i -> new TaskStatus(ORDER.get(i), null, i)).toList());
         when(client.getTask("child")).thenReturn(task("child", "parent", null, "in progress"));
@@ -63,7 +65,7 @@ class ParentStatusWorkflowTest {
 
     @Test
     void subtaskInReviewPullsParentBackFromReadyForTesting() {
-        parent(BUG, "ready for testing", "review", "complete");
+        parent(BUG, "in testing", "review", "complete");
 
         workflow.handle(event());
 
@@ -76,7 +78,7 @@ class ParentStatusWorkflowTest {
 
         workflow.handle(event());
 
-        verify(client).updateTask("parent", TaskUpdate.status("ready for testing"));
+        verify(client).updateTask("parent", TaskUpdate.status("in testing"));
     }
 
     @Test
@@ -113,7 +115,7 @@ class ParentStatusWorkflowTest {
         // E.g. after testing rejected it: the parent stays where the tester put it.
         parent(BUG, "to do", "waiting info", "complete");
         workflow.handle(event());
-        parent(BUG, "ready for testing", "waiting info", "in progress");
+        parent(BUG, "in testing", "waiting info", "in progress");
         workflow.handle(event());
 
         verify(client, never()).updateTask(anyString(), any());
@@ -142,6 +144,38 @@ class ParentStatusWorkflowTest {
         parent(BUG, "in lobby", "to do", "to do");
         workflow.handle(event());
         parent(BUG, "approved", "complete", "complete");
+        workflow.handle(event());
+
+        verify(client, never()).updateTask(anyString(), any());
+    }
+
+    @Test
+    void defectsDoNotMoveTheTaskTheyAreIn() {
+        Task defect = new Task("defect", "name", "parent", DEFECT, new TaskStatus("in progress", null, 4), null,
+                new IdRef("list"), List.of(), List.of(), List.of(), List.of());
+        parentWith(BUG, "in testing", sub("complete", null), defect);
+        workflow.handle(event());
+
+        // Only Defects inside: nothing to follow.
+        parentWith(BUG, "complete", defect);
+        workflow.handle(event());
+
+        verify(client, never()).updateTask(anyString(), any());
+    }
+
+    @Test
+    void defectFollowsItsOwnStreamsToInTesting() {
+        parent(DEFECT, "in progress", "complete", "complete");
+
+        workflow.handle(event());
+
+        verify(client).updateTask("parent", TaskUpdate.status("in testing"));
+    }
+
+    @Test
+    void parentOnHoldIsLeftAlone() {
+        parent(BUG, "on hold", "in progress");
+
         workflow.handle(event());
 
         verify(client, never()).updateTask(anyString(), any());

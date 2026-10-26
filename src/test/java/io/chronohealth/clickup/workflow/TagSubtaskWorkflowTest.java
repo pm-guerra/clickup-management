@@ -36,7 +36,7 @@ class TagSubtaskWorkflowTest {
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
     private static final ClickUpProperties.TagSubtaskRule BACKEND = new ClickUpProperties.TagSubtaskRule(
             "backend", List.of("Story", "Bug", "Change"), "Backend | ", "to do", List.of("backend"),
-            List.of(new ClickUpProperties.FixedField("maintenance", "true", List.of("Bug", "Change"))),
+            List.of(new ClickUpProperties.FixedField("maintenance", "true", List.of("Bug", "Change"), null)),
             List.of("Pre Go Live"), true);
     private static final long BUG = 1001L;
     private static final long CHANGE = 1002L;
@@ -219,10 +219,10 @@ class TagSubtaskWorkflowTest {
                 new ClickUpProperties.RateLimit(0, Duration.ofSeconds(1)),
                 new ClickUpProperties.Workflows(new ClickUpProperties.CopyParentFields(false, "{}", ""),
                         new ClickUpProperties.TagSubtasks(enabled, rules),
-                        new ClickUpProperties.ParentStatus(false, List.of(), List.of(), "mobile"),
+                        new ClickUpProperties.ParentStatus(false, List.of(), List.of(), "mobile", List.of("Defect")),
                         new ClickUpProperties.CreateDefaults(false, List.of()),
                         new ClickUpProperties.RejectionReopen(false, List.of(), List.of(), List.of(), List.of(),
-                                "waiting info"),
+                                "waiting info", List.of()),
                         new ClickUpProperties.PrioritySync(false, List.of(), List.of(), List.of())));
         return new TagSubtaskWorkflow(factory, new CustomFieldValueMapper(), new TaskTypeResolver(), properties);
     }

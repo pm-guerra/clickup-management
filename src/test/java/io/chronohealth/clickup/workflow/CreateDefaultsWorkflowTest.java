@@ -28,6 +28,7 @@ class CreateDefaultsWorkflowTest {
     private static final long BUG = 1001L;
     private static final long CHANGE = 1002L;
     private static final long STORY = 1004L;
+    private static final long DEFECT = 1010L;
 
     private final ClickUpClientFactory factory = mock(ClickUpClientFactory.class);
     private final ClickUpClient client = mock(ClickUpClient.class);
@@ -38,7 +39,8 @@ class CreateDefaultsWorkflowTest {
     void setUp() {
         when(factory.forWorkspace("ws")).thenReturn(client);
         when(client.getCustomTaskTypes("ws")).thenReturn(List.of(
-                new CustomTaskType(BUG, "Bug"), new CustomTaskType(CHANGE, "Change"), new CustomTaskType(STORY, "Story")));
+                new CustomTaskType(BUG, "Bug"), new CustomTaskType(CHANGE, "Change"), new CustomTaskType(STORY, "Story"),
+                new CustomTaskType(DEFECT, "Defect")));
     }
 
     @Test
@@ -48,6 +50,22 @@ class CreateDefaultsWorkflowTest {
             workflow.handle(created("t" + type));
             verify(client).setCustomField("t" + type, "f-maint", true);
         }
+    }
+
+    @Test
+    void defectInheritsMaintenanceFromItsParent() {
+        when(client.getTask("feature")).thenReturn(task("feature", null, maintenance("true")));
+        when(client.getTask("defect")).thenReturn(new Task("defect", "name", "feature", DEFECT, null, null,
+                new IdRef("list"), List.of(), List.of(), List.of(maintenance(null)), List.of()));
+        workflow.handle(created("defect"));
+        verify(client).setCustomField("defect", "f-maint", true);
+
+        // Parent without a value: nothing to inherit.
+        when(client.getTask("story")).thenReturn(task("story", null, maintenance(null)));
+        when(client.getTask("defect2")).thenReturn(new Task("defect2", "name", "story", DEFECT, null, null,
+                new IdRef("list"), List.of(), List.of(), List.of(maintenance(null)), List.of()));
+        workflow.handle(created("defect2"));
+        verify(client, never()).setCustomField(org.mockito.ArgumentMatchers.eq("defect2"), anyString(), any());
     }
 
     @Test
@@ -95,11 +113,13 @@ class CreateDefaultsWorkflowTest {
                 Duration.ofSeconds(1), Duration.ofSeconds(1), new ClickUpProperties.RateLimit(0, Duration.ofSeconds(1)),
                 new ClickUpProperties.Workflows(new ClickUpProperties.CopyParentFields(false, "{}", ""),
                         new ClickUpProperties.TagSubtasks(false, List.of()),
-                        new ClickUpProperties.ParentStatus(false, List.of(), List.of(), "mobile"),
-                        new ClickUpProperties.CreateDefaults(true, List.of(new ClickUpProperties.CreateDefault(
-                                List.of("Bug", "Change"), "maintenance", "true"))),
+                        new ClickUpProperties.ParentStatus(false, List.of(), List.of(), "mobile", List.of("Defect")),
+                        new ClickUpProperties.CreateDefaults(true, List.of(
+                                new ClickUpProperties.CreateDefault(List.of("Bug", "Change"), "maintenance", "true",
+                                        null),
+                                new ClickUpProperties.CreateDefault(List.of("Defect"), "maintenance", null, true))),
                         new ClickUpProperties.RejectionReopen(false, List.of(), List.of(), List.of(), List.of(),
-                                "waiting info"),
+                                "waiting info", List.of()),
                         new ClickUpProperties.PrioritySync(false, List.of(), List.of(), List.of())));
     }
 }

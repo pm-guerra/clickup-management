@@ -9,7 +9,7 @@ import org.springframework.stereotype.Component;
 /**
  * Statuses only some tasks may be in:
  * <ul>
- *   <li>ready for testing: only Stories, Bugs, Changes and Features (tested as a whole);</li>
+ *   <li>in testing: only Stories, Features, Bugs, Changes and Defects (tested as a whole);</li>
  *   <li>ready_for_dev: only mobile stream tasks (and the tasks inside them), or a task whose subtasks are all
  *       mobile.</li>
  * </ul>
@@ -31,9 +31,9 @@ public class StatusPlacement {
      */
     public Optional<String> violation(Task task, String status, AuditContext context) {
         String normalized = ParentStatusPolicy.normalize(status);
-        if (ParentStatusPolicy.READY_FOR_TESTING.equals(normalized) && !parentStatuses.isTestingType(task, context)) {
+        if (ParentStatusPolicy.IN_TESTING.equals(normalized) && !parentStatuses.isTestingType(task, context)) {
             return Optional.of("only " + String.join(", ", parentStatuses.testingTypes())
-                    + " tasks can be in 'ready for testing'.");
+                    + " tasks can be in 'in testing'.");
         }
         if (ParentStatusPolicy.READY_FOR_DEV.equals(normalized) && !mayBeReadyForDev(task, context)) {
             return Optional.of("only mobile stream tasks, or tasks whose subtasks are all mobile, can be in '"

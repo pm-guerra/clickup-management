@@ -30,6 +30,7 @@ class RejectionReopenWorkflowTest {
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
     private static final long STORY = 1004L;
     private static final long EPIC = 1003L;
+    private static final long DEFECT = 1010L;
 
     private final ClickUpClientFactory factory = mock(ClickUpClientFactory.class);
     private final ClickUpClient client = mock(ClickUpClient.class);
@@ -40,14 +41,15 @@ class RejectionReopenWorkflowTest {
     void setUp() {
         when(factory.forWorkspace("ws")).thenReturn(client);
         when(client.getCustomTaskTypes("ws")).thenReturn(List.of(
-                new CustomTaskType(STORY, "Story"), new CustomTaskType(EPIC, "Epic")));
+                new CustomTaskType(STORY, "Story"), new CustomTaskType(EPIC, "Epic"),
+                new CustomTaskType(DEFECT, "Defect")));
     }
 
     @Test
     void reopensOnlyCompletedSubtasksWhenTestingRejects() {
         task(STORY, "complete", "complete mobile", "in progress", "complete", "to do");
 
-        workflow.handle(statusChange("ready for testing", "in progress"));
+        workflow.handle(statusChange("in testing", "in progress"));
 
         verify(client).updateTask("s0-complete", TaskUpdate.status("waiting info"));
         verify(client).updateTask("s3-complete", TaskUpdate.status("waiting info"));
@@ -57,12 +59,28 @@ class RejectionReopenWorkflowTest {
     }
 
     @Test
-    void readyForTestingToToDoAlsoCounts() {
+    void inTestingToToDoAlsoCounts() {
         task(STORY, "complete");
 
-        workflow.handle(statusChange("Ready for Testing", "TO DO"));
+        workflow.handle(statusChange("In Testing", "TO DO"));
 
         verify(client).updateTask("s0-complete", TaskUpdate.status("waiting info"));
+    }
+
+    @Test
+    void defectsInsideKeepTheirOwnLifecycle() {
+        Task stream = new Task("stream", "sub", "t", null, new TaskStatus("complete", null, null), null,
+                new IdRef("list"), List.of(), List.of(), List.of(), List.of());
+        Task defect = new Task("defect", "sub", "t", DEFECT, new TaskStatus("complete", null, null), null,
+                new IdRef("list"), List.of(), List.of(), List.of(), List.of());
+        when(client.getTask("t", true)).thenReturn(new Task("t", "name", null, STORY,
+                new TaskStatus("in progress", null, null), null, new IdRef("list"), List.of(), List.of(), List.of(),
+                List.of(stream, defect)));
+
+        workflow.handle(statusChange("in testing", "in progress"));
+
+        verify(client).updateTask("stream", TaskUpdate.status("waiting info"));
+        verify(client, never()).updateTask(org.mockito.ArgumentMatchers.eq("defect"), any());
     }
 
     @Test
@@ -70,8 +88,8 @@ class RejectionReopenWorkflowTest {
         task(STORY, "complete");
 
         workflow.handle(statusChange("in progress", "to do"));
-        workflow.handle(statusChange("ready for testing", "review"));
-        workflow.handle(statusChange("ready for testing", "complete"));
+        workflow.handle(statusChange("in testing", "review"));
+        workflow.handle(statusChange("in testing", "complete"));
         workflow.handle(new ClickUpEvent("key", "wh", "ws", "taskStatusUpdated", "t", List.of()));
 
         verify(client, never()).getTask(anyString(), anyBoolean());
@@ -82,7 +100,7 @@ class RejectionReopenWorkflowTest {
     void otherTaskTypesDoNothing() {
         task(EPIC, "complete");
 
-        workflow.handle(statusChange("ready for testing", "in progress"));
+        workflow.handle(statusChange("in testing", "in progress"));
 
         verify(client, never()).updateTask(anyString(), any());
     }
@@ -110,11 +128,11 @@ class RejectionReopenWorkflowTest {
                 Duration.ofSeconds(1), Duration.ofSeconds(1), new ClickUpProperties.RateLimit(0, Duration.ofSeconds(1)),
                 new ClickUpProperties.Workflows(new ClickUpProperties.CopyParentFields(false, "{}", ""),
                         new ClickUpProperties.TagSubtasks(false, List.of()),
-                        new ClickUpProperties.ParentStatus(false, List.of(), List.of(), "mobile"),
+                        new ClickUpProperties.ParentStatus(false, List.of(), List.of(), "mobile", List.of("Defect")),
                         new ClickUpProperties.CreateDefaults(false, List.of()),
                         new ClickUpProperties.RejectionReopen(true, List.of("Story", "Bug", "Change"),
-                                List.of("ready for testing"), List.of("in progress", "to do"), List.of("complete"),
-                                "waiting info"),
+                                List.of("in testing"), List.of("in progress", "to do"), List.of("complete"),
+                                "waiting info", List.of("Defect")),
                         new ClickUpProperties.PrioritySync(false, List.of(), List.of(), List.of())));
     }
 }

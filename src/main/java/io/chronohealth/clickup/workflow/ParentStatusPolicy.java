@@ -18,13 +18,14 @@ import java.util.Set;
  *   <li>any in review -> review;</li>
  *   <li>any in ready_for_dev -> ready_for_dev if every subtask is mobile, else review;</li>
  *   <li>any in development -> in development;</li>
- *   <li>all complete -> ready for testing (Story/Bug/Change/Feature), complete (a Task wrapping tasks).</li>
+ *   <li>all complete -> in testing (Story/Bug/Change/Feature/Defect), complete (a Task wrapping tasks).</li>
  * </ol>
- * A subtask in ready for testing or approved (a nested Bug, say) counts as complete. While any subtask is in waiting
+ * A subtask in in testing or approved (a nested Bug, say) counts as complete. While any subtask is in waiting
  * info nothing is decided: the parent is moved by hand.
  * <p>
  * The app never pulls a parent back into the testers' stages before development (pending, in lobby, waiting info,
- * to do), and leaves a parent that testers moved on to approved or complete once all its subtasks are complete.
+ * to do), and leaves a parent that testers moved on to approved or complete once all its subtasks are complete. A
+ * parent in a status not known here (e.g. on hold) is left alone too.
  */
 public final class ParentStatusPolicy {
 
@@ -37,7 +38,7 @@ public final class ParentStatusPolicy {
     public static final String REVIEW = "review";
     public static final String READY_FOR_DEV = "ready_for_dev";
     public static final String IN_DEVELOPMENT = "in development";
-    public static final String READY_FOR_TESTING = "ready for testing";
+    public static final String IN_TESTING = "in testing";
     public static final String APPROVED = "approved";
     public static final String COMPLETE = "complete";
 
@@ -55,7 +56,7 @@ public final class ParentStatusPolicy {
             entry(REVIEW, Stage.REVIEW),
             entry(READY_FOR_DEV, Stage.READY_FOR_DEV),
             entry(IN_DEVELOPMENT, Stage.IN_DEVELOPMENT),
-            entry(READY_FOR_TESTING, Stage.DONE),
+            entry(IN_TESTING, Stage.DONE),
             entry(APPROVED, Stage.DONE),
             entry(COMPLETE, Stage.DONE));
 
@@ -69,7 +70,7 @@ public final class ParentStatusPolicy {
             entry(REVIEW, 3),
             entry(READY_FOR_DEV, 4),
             entry(IN_DEVELOPMENT, 5),
-            entry(READY_FOR_TESTING, 6),
+            entry(IN_TESTING, 6),
             entry(APPROVED, 7),
             entry(COMPLETE, 8));
 
@@ -84,7 +85,7 @@ public final class ParentStatusPolicy {
     }
 
     /**
-     * @param testingType the parent is tested as a whole (Story/Bug/Change/Feature): done means ready for testing
+     * @param testingType the parent is tested as a whole (Story/Bug/Change/Feature/Defect): done means in testing
      * @return the status the subtasks call for; empty without subtasks or when one is in a status not known here
      */
     public static Optional<String> derive(List<Child> children, boolean testingType) {
@@ -124,7 +125,7 @@ public final class ParentStatusPolicy {
         if (stages.contains(Stage.IN_DEVELOPMENT)) {
             return Optional.of(IN_DEVELOPMENT);
         }
-        return Optional.of(testingType ? READY_FOR_TESTING : COMPLETE);
+        return Optional.of(testingType ? IN_TESTING : COMPLETE);
     }
 
     /**
@@ -133,13 +134,13 @@ public final class ParentStatusPolicy {
      */
     public static Optional<String> move(String current, String derived) {
         String status = normalize(current);
-        if (status.equals(derived)) {
+        if (status.equals(derived) || !RANKS.containsKey(status)) {
             return Optional.empty();
         }
         if (BEFORE_DEVELOPMENT.contains(status) && (PENDING.equals(derived) || TO_DO.equals(derived))) {
             return Optional.empty();
         }
-        if (READY_FOR_TESTING.equals(derived) && AFTER_TESTING.contains(status)) {
+        if (IN_TESTING.equals(derived) && AFTER_TESTING.contains(status)) {
             return Optional.empty();
         }
         return Optional.of(derived);
@@ -155,7 +156,7 @@ public final class ParentStatusPolicy {
         if (rank == null || derivedRank == null) {
             return false;
         }
-        if (READY_FOR_TESTING.equals(derived) && AFTER_TESTING.contains(normalized)) {
+        if (IN_TESTING.equals(derived) && AFTER_TESTING.contains(normalized)) {
             return false;
         }
         return rank > derivedRank;

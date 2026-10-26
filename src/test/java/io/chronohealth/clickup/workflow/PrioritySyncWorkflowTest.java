@@ -95,10 +95,10 @@ class PrioritySyncWorkflowTest {
                 Duration.ofSeconds(1), Duration.ofSeconds(1), new ClickUpProperties.RateLimit(0, Duration.ofSeconds(1)),
                 new ClickUpProperties.Workflows(new ClickUpProperties.CopyParentFields(false, "{}", ""),
                         new ClickUpProperties.TagSubtasks(false, List.of()),
-                        new ClickUpProperties.ParentStatus(false, List.of(), List.of(), "mobile"),
+                        new ClickUpProperties.ParentStatus(false, List.of(), List.of(), "mobile", List.of("Defect")),
                         new ClickUpProperties.CreateDefaults(false, List.of()),
                         new ClickUpProperties.RejectionReopen(false, List.of(), List.of(), List.of(), List.of(),
-                                "waiting info"),
+                                "waiting info", List.of()),
                         new ClickUpProperties.PrioritySync(true, List.of("Story", "Bug", "Change"), List.of("to do"),
                                 List.of("Task"))));
     }
