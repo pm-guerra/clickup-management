@@ -97,21 +97,21 @@ app:
     rules-doc-url: https://app.clickup.com/90152153739/docs/2kyqtcmb-7115
     # Who's who for the permission rules (ClickUp user ids). Anyone not listed has no permissions.
     people:
+      # enforce: their forbidden changes are undone right away (everyone but the admins)
       # unrestricted: the status rules (in testing / ready_for_dev placement, parents ahead of subtasks)
       # don't apply to them; everyone else's moves that break them are undone.
       # The app itself acts as Octo bot (it authorized the OAuth app); its automatic changes are always allowed
       - { id: "106723346", name: Octo bot, role: admin, unrestricted: true }
       - { id: "100796657", name: Pedro, role: admin, unrestricted: true }
       - { id: "106501885", name: José, role: admin }
-      - { id: "106791322", name: Martim, role: tester }
-      - { id: "106744781", name: Katya, role: tester }
-      - { id: "266659509", name: Catarina, role: tester }
-      # enforce: their forbidden changes are undone right away (others are only reported)
+      - { id: "106791322", name: Martim, role: tester, enforce: true }
+      - { id: "106744781", name: Katya, role: tester, enforce: true }
+      - { id: "266659509", name: Catarina, role: tester, enforce: true }
       - { id: "112510284", name: Luís, role: dev, stream: backend, enforce: true }
       - { id: "278564675", name: Vivek, role: dev, stream: mobile, enforce: true }
       - { id: "308507562", name: Sebastian, role: dev, stream: mobile, enforce: true }
       - { id: "106773419", name: Nubelson, role: dev, stream: web, enforce: true }
-      - { id: "106655756", name: Danylo, role: dev, stream: web }
+      - { id: "106655756", name: Danylo, role: dev, stream: web, enforce: true }
     # Testers move these; devs move the stream tasks under them
     main-task-types: [Story, Bug, Change, Feature, Defect, Epic]
     streams: [backend, web, mobile]
