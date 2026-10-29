@@ -22,7 +22,7 @@ import org.springframework.stereotype.Component;
  * every new Bug or Change, or a new Defect's maintenance copied from the task it's in.
  * <p>
  * Idempotent (a field that already has the value is left alone) and loop-free: setting a field produces a
- * {@code taskUpdated} event, which no workflow subscribes to.
+ * {@code taskUpdated} event, which only PrioritySyncWorkflow reacts to, and only by copying a field down.
  */
 @Component
 public class CreateDefaultsWorkflow implements EventHandler {

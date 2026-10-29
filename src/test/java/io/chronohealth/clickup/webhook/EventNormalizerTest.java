@@ -66,4 +66,29 @@ class EventNormalizerTest {
         assertThat(item.mentionedUserIds()).containsExactly(106723346L);
         assertThat(mapper.writeValueAsString(item)).doesNotContain("secret");
     }
+
+    @Test
+    void keepsDropDownValuesAndTheFieldsNameButStripsOtherCustomFieldValues() {
+        String json = """
+                {"webhook_id":"w1","event":"taskUpdated","task_id":"t1","history_items":[
+                 {"id":"h1","type":1,"field":"custom_field","user":{"id":5},"before":"opt-5","after":"opt-4",
+                  "custom_field":{"id":"f-pp","name":"Product Priority","type":"drop_down",
+                   "type_config":{"options":[{"id":"opt-5","name":"5"}]}}},
+                 {"id":"h2","type":1,"field":"custom_field","user":{"id":5},"before":"secret","after":"secret",
+                  "custom_field":{"id":"f-notes","name":"Notes","type":"text"}}]}""";
+        ClickUpWebhookPayload payload = JsonMapper.builder()
+                .propertyNamingStrategy(tools.jackson.databind.PropertyNamingStrategies.SNAKE_CASE).build()
+                .readValue(json, ClickUpWebhookPayload.class);
+        WebhookRegistration registration = new WebhookRegistration("w1", "ws", "e", List.of(), "s", Instant.now());
+
+        List<ClickUpWebhookPayload.HistoryItem> items = new EventNormalizer().normalize(payload, registration,
+                new byte[0]).historyItems();
+
+        assertThat(items.get(0).after().asString()).isEqualTo("opt-4");
+        assertThat(items.get(0).customFieldName()).isEqualTo("Product Priority");
+        assertThat(items.get(0).customField().has("type_config")).isFalse();
+        assertThat(items.get(1).before()).isNull();
+        assertThat(items.get(1).after()).isNull();
+        assertThat(items.get(1).customFieldName()).isEqualTo("Notes");
+    }
 }

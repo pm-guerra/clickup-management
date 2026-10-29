@@ -39,6 +39,8 @@ public final class ParentStatusTestSupport {
                                 List.of("Task"), List.of("to do", "in progress", "review", "complete")),
                         new AuditProperties.Toggle(true), new AuditProperties.Toggle(true),
                         new AuditProperties.Toggle(true), new AuditProperties.Toggle(true),
-                        new AuditProperties.Defects(true, List.of("Defect"), List.of("Feature", "Bug", "Change"), true)));
+                        new AuditProperties.Defects(true, List.of("Defect"), List.of("Feature", "Bug", "Change"), true),
+                        new AuditProperties.PriorityLock(true, List.of("in progress", "review"),
+                                List.of("Product Priority"))));
     }
 }

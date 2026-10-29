@@ -1,5 +1,7 @@
 package io.chronohealth.clickup.audit;
 
+import io.chronohealth.clickup.client.dto.Tag;
+import io.chronohealth.clickup.client.dto.Task;
 import io.chronohealth.clickup.webhook.ClickUpEvent;
 import io.chronohealth.clickup.webhook.ClickUpWebhookPayload.HistoryItem;
 import java.util.ArrayList;
@@ -8,13 +10,17 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Only admins may add or remove the stream tags (backend / web / mobile), on any task.
+ * Only admins may add or remove the stream tags (backend / web / mobile), on any task, including when creating it.
+ * <p>
+ * A creation carries no tag changes, so its stream tags are read from the task as it is now: the ones an enforced
+ * person set are already gone (see {@link EnforcementGuard}), so only those still there are reported.
  */
 @Component
 public class StreamTagChangeRule implements AuditEventRule {
 
     static final String ADDED = "tag";
     static final String REMOVED = "tag_removed";
+    static final String CREATION = "task_creation";
 
     private final People people;
     private final TaskKinds kinds;
@@ -40,13 +46,17 @@ public class StreamTagChangeRule implements AuditEventRule {
 
     @Override
     public List<String> eventTypes() {
-        return List.of("taskTagUpdated");
+        return List.of("taskTagUpdated", "taskCreated");
     }
 
     @Override
     public List<String> check(ClickUpEvent event, AuditContext context) {
         List<String> findings = new ArrayList<>();
         for (HistoryItem item : event.historyItems()) {
+            if (CREATION.equals(item.field())) {
+                findings.addAll(checkCreation(event, item, context));
+                continue;
+            }
             boolean added = ADDED.equals(item.field());
             if (!added && !REMOVED.equals(item.field())) {
                 continue;
@@ -64,6 +74,23 @@ public class StreamTagChangeRule implements AuditEventRule {
             }
         }
         return findings;
+    }
+
+    private List<String> checkCreation(ClickUpEvent event, HistoryItem item, AuditContext context) {
+        Long userId = item.user() == null ? null : item.user().id();
+        if (permissions.canChangeStreamTags(userId)) {
+            return List.of();
+        }
+        Task task = context.task(event.taskId());
+        if (task == null || task.tags() == null) {
+            return List.of();
+        }
+        return task.tags().stream()
+                .map(Tag::name)
+                .filter(kinds::isStreamTag)
+                .map(t -> people.describe(userId) + " created it with the '" + t.trim().toLowerCase(java.util.Locale.ROOT)
+                        + "' tag. " + permissions.whoMayTag())
+                .toList();
     }
 
     /**

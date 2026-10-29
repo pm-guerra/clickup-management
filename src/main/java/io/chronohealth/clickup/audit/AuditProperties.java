@@ -88,7 +88,24 @@ public record AuditProperties(
 
     public record Rules(@Valid @NotNull StreamTaskStatus streamTaskStatus, @Valid @NotNull Toggle statusMove,
                         @Valid @NotNull Toggle streamTagChange, @Valid @NotNull Toggle parentStatus,
-                        @Valid @NotNull Toggle statusPlacement, @Valid @NotNull Defects defects) {
+                        @Valid @NotNull Toggle statusPlacement, @Valid @NotNull Defects defects,
+                        @Valid @NotNull PriorityLock priorityLock) {
+    }
+
+    /**
+     * @param enabled  check priority changes at all
+     * @param statuses once a task is in one of these (work started), only admins change its priority
+     * @param fields   custom fields locked along with the priority (Product Priority)
+     */
+    public record PriorityLock(boolean enabled, List<String> statuses, List<String> fields) {
+
+        public List<String> statusesOrEmpty() {
+            return statuses == null ? List.of() : statuses;
+        }
+
+        public List<String> fieldsOrEmpty() {
+            return fields == null ? List.of() : fields;
+        }
     }
 
     public record Toggle(boolean enabled) {

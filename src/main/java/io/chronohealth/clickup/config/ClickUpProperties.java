@@ -33,26 +33,26 @@ public record ClickUpProperties(
     }
 
     /**
-     * Copies a parent's priority to its subtasks while the parent is still in one of {@code whenStatuses}
+     * When a parent's priority or one of {@code fields} changes, its children and grandchildren get the same value
      * (see PrioritySyncWorkflow).
      *
-     * @param parentTypes  task types whose priority is synced (Story, Bug, Change)
-     * @param whenStatuses only while the parent is in one of these statuses (to do)
-     * @param subtaskTypes subtasks of these types get the priority (Task = the stream tasks)
+     * @param parentTypes task types whose changes are pushed down (Story, Bug, Change, Feature, Defect, Task)
+     * @param skipTypes   subtasks of these types (and everything inside them) keep their own values (Defect)
+     * @param fields      custom fields pushed down along with the priority (Product Priority)
      */
-    public record PrioritySync(boolean enabled, List<String> parentTypes, List<String> whenStatuses,
-                               List<String> subtaskTypes) {
+    public record PrioritySync(boolean enabled, List<String> parentTypes, List<String> skipTypes,
+                               List<String> fields) {
 
         public List<String> parentTypesOrEmpty() {
             return parentTypes == null ? List.of() : parentTypes;
         }
 
-        public List<String> whenStatusesOrEmpty() {
-            return whenStatuses == null ? List.of() : whenStatuses;
+        public List<String> skipTypesOrEmpty() {
+            return skipTypes == null ? List.of() : skipTypes;
         }
 
-        public List<String> subtaskTypesOrEmpty() {
-            return subtaskTypes == null ? List.of() : subtaskTypes;
+        public List<String> fieldsOrEmpty() {
+            return fields == null ? List.of() : fields;
         }
     }
 

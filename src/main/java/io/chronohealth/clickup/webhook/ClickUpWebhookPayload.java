@@ -12,20 +12,39 @@ public record ClickUpWebhookPayload(String webhookId, String event, String taskI
     /**
      * {@code before}/{@code after} carry the changed values and {@code comment} a posted comment. They can contain
      * task content, so {@link EventNormalizer} only keeps values for fields that are safe to store (tags, statuses),
-     * and replaces a comment by its id and the ids of the users it mentions.
+     * and replaces a comment by its id and the ids of the users it mentions. {@code customField} names the custom
+     * field a {@code custom_field} change is about; only its id, name and type are kept.
      */
     public record HistoryItem(String id, String type, String date, String field, String parentId, User user,
                               JsonNode before, JsonNode after, JsonNode comment, List<Long> mentionedUserIds,
-                              String commentId) {
+                              String commentId, JsonNode customField) {
 
         public HistoryItem(String id, String type, String date, String field, String parentId, User user,
                            JsonNode before, JsonNode after) {
-            this(id, type, date, field, parentId, user, before, after, null, null, null);
+            this(id, type, date, field, parentId, user, before, after, null, null, null, null);
+        }
+
+        public HistoryItem(String id, String type, String date, String field, String parentId, User user,
+                           JsonNode before, JsonNode after, JsonNode comment, List<Long> mentionedUserIds,
+                           String commentId) {
+            this(id, type, date, field, parentId, user, before, after, comment, mentionedUserIds, commentId, null);
         }
 
         public HistoryItem withoutValues() {
             return new HistoryItem(id, type, date, field, parentId, user, null, null, null, mentionedUserIds,
-                    commentId);
+                    commentId, customField);
+        }
+
+        public HistoryItem withCustomField(JsonNode reducedCustomField) {
+            return new HistoryItem(id, type, date, field, parentId, user, before, after, comment, mentionedUserIds,
+                    commentId, reducedCustomField);
+        }
+
+        /**
+         * The changed custom field's name, for {@code custom_field} changes.
+         */
+        public String customFieldName() {
+            return customField == null ? null : customField.path("name").asString(null);
         }
 
         /**
@@ -33,7 +52,7 @@ public record ClickUpWebhookPayload(String webhookId, String event, String taskI
          */
         public HistoryItem withCommentReduced(List<Long> mentions, String reducedCommentId) {
             return new HistoryItem(id, type, date, field, parentId, user, before, after, null, mentions,
-                    reducedCommentId);
+                    reducedCommentId, customField);
         }
 
         public List<Long> mentionedUserIdsOrEmpty() {

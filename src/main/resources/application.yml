@@ -145,6 +145,11 @@ app:
         types: [Defect]
         parent-types: [Feature, Bug, Change]
         clear-points: true
+      # Once work has started, only admins change a task's priority or Product Priority
+      priority-lock:
+        enabled: true
+        statuses: [in progress, blocked, review, ready_for_dev, in development, in testing, approved]
+        fields: [Product Priority]
 
 clickup:
   client-id: ${CLICKUP_CLIENT_ID}
@@ -168,11 +173,13 @@ clickup:
       parent-custom-item-id: ${CLICKUP_BUG_CUSTOM_ITEM_ID:}
     # While a Story/Bug/Change is still in "to do", a priority change is copied to its stream tasks
     # (see PrioritySyncWorkflow).
+    # A parent's priority and Product Priority are pushed down to its children and grandchildren, whatever their
+    # status (see PrioritySyncWorkflow). Defects keep their own.
     priority-sync:
       enabled: true
-      parent-types: [Story, Bug, Change, Feature, Defect]
-      when-statuses: [to do]
-      subtask-types: [Task]
+      parent-types: [Story, Bug, Change, Feature, Defect, Task]
+      skip-types: [Defect]
+      fields: [Product Priority]
     # When testing rejects a task (in testing -> in progress / to do), reopen its completed subtasks
     # (see RejectionReopenWorkflow). Defects inside it have their own lifecycle and aren't reopened.
     rejection-reopen:
@@ -223,7 +230,7 @@ clickup:
               from-parent: true
               parent-types: [Defect]
           copy-fields:
-            - Pre Go Live
+            - Product Priority
           copy-priority: true
         - tag: web
           task-types: [Story, Bug, Change, Feature, Defect]
@@ -238,7 +245,7 @@ clickup:
               from-parent: true
               parent-types: [Defect]
           copy-fields:
-            - Pre Go Live
+            - Product Priority
           copy-priority: true
         - tag: mobile
           task-types: [Story, Bug, Change, Feature, Defect]
@@ -253,5 +260,5 @@ clickup:
               from-parent: true
               parent-types: [Defect]
           copy-fields:
-            - Pre Go Live
+            - Product Priority
           copy-priority: true

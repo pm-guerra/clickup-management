@@ -103,6 +103,19 @@ class PermissionRulesTest {
     }
 
     @Test
+    void streamTagsStillThereFromACreationAreReported() {
+        context.remember(task("tagged", "New feature", null, STORY, "backend", "2.0.0"));
+        HistoryItem item = new HistoryItem("h", "1", null, "task_creation", null, new User(STRANGER), null, null);
+        ClickUpEvent created = new ClickUpEvent("k", "wh", "ws", "taskCreated", "tagged", List.of(item));
+
+        assertThat(tagRule.check(created, context)).singleElement().asString()
+                .contains("created it with the 'backend' tag");
+        HistoryItem byAdmin = new HistoryItem("h", "1", null, "task_creation", null, new User(PEDRO), null, null);
+        assertThat(tagRule.check(new ClickUpEvent("k", "wh", "ws", "taskCreated", "tagged", List.of(byAdmin)),
+                context)).isEmpty();
+    }
+
+    @Test
     void onlyAdminsChangeStreamTags() {
         assertThat(tagRule.check(tag("bug", "tag", PEDRO, "web"), context)).isEmpty();
         assertThat(tagRule.check(tag("bug", "tag", MARTIM, "urgent"), context)).isEmpty();
@@ -148,6 +161,8 @@ class PermissionRulesTest {
                                 List.of("to do", "in progress", "review", "complete", "waiting info")),
                         new AuditProperties.Toggle(true), new AuditProperties.Toggle(true),
                         new AuditProperties.Toggle(true), new AuditProperties.Toggle(true),
-                        new AuditProperties.Defects(true, List.of("Defect"), List.of("Feature", "Bug", "Change"), true)));
+                        new AuditProperties.Defects(true, List.of("Defect"), List.of("Feature", "Bug", "Change"), true),
+                        new AuditProperties.PriorityLock(true, List.of("in progress", "review"),
+                                List.of("Product Priority"))));
     }
 }

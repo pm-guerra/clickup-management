@@ -13,7 +13,8 @@ import org.springframework.stereotype.Component;
  *   <li>stream tasks (and sub-subtasks in them): devs of that stream and admins, to any status (including
  *       waiting info);</li>
  *   <li>other tasks: anyone;</li>
- *   <li>stream tags (backend/web/mobile): admins only.</li>
+ *   <li>stream tags (backend/web/mobile): admins only;</li>
+ *   <li>priority and Product Priority of a task where work has started: admins only.</li>
  * </ul>
  */
 @Component
@@ -45,6 +46,10 @@ public class Permissions {
         return people.role(userId).map(r -> r == Role.ADMIN).orElse(false);
     }
 
+    public boolean canChangeLockedPriority(Long userId) {
+        return people.role(userId).map(r -> r == Role.ADMIN).orElse(false);
+    }
+
     public String whoMayMove(Classification kind) {
         return kind.kind() == Kind.MAIN
                 ? "Only testers and admins may move Stories/Features/Bugs/Changes/Defects/Epics."
@@ -53,5 +58,9 @@ public class Permissions {
 
     public String whoMayTag() {
         return "Only admins may add or remove stream tags.";
+    }
+
+    public String whoMayChangeLockedPriority() {
+        return "Once work has started, only admins may change the priority or Product Priority.";
     }
 }
