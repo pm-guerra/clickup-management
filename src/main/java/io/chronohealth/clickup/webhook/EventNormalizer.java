@@ -36,7 +36,7 @@ public class EventNormalizer {
                         .map(EventNormalizer::stripUnsafeValues)
                         .toList();
         return new ClickUpEvent(
-                idempotencyKey(payload.webhookId(), historyItems, rawBody),
+                idempotencyKey(payload.webhookId(), payload.event(), historyItems, rawBody),
                 payload.webhookId(),
                 registration.workspaceId(),
                 payload.event(),
@@ -48,16 +48,21 @@ public class EventNormalizer {
      * ClickUp recommends {@code webhook_id:history_item_id}. When a delivery carries several history items they're
      * joined in order. Without history items, falls back to a hash of the raw body, which is stable across
      * ClickUp's retries of the same delivery.
+     * <p>
+     * The event type is part of the key: ClickUp sends one change as several events sharing a history item (a
+     * comment arrives as both taskCommentPosted and taskUpdated), and each must be kept.
      */
-    static String idempotencyKey(String webhookId, List<ClickUpWebhookPayload.HistoryItem> historyItems, byte[] rawBody) {
+    static String idempotencyKey(String webhookId, String eventType,
+                                 List<ClickUpWebhookPayload.HistoryItem> historyItems, byte[] rawBody) {
         List<String> ids = historyItems.stream()
                 .map(ClickUpWebhookPayload.HistoryItem::id)
                 .filter(Objects::nonNull)
                 .toList();
         String suffix = ids.isEmpty() ? "body-" + sha256(rawBody) : String.join(",", ids);
-        String key = webhookId + ":" + suffix;
+        String prefix = webhookId + ":" + eventType + ":";
+        String key = prefix + suffix;
         // Keep within the column size; hashing preserves determinism.
-        return key.length() <= 255 ? key : webhookId + ":hash-" + sha256(suffix.getBytes());
+        return key.length() <= 255 ? key : prefix + "hash-" + sha256(suffix.getBytes());
     }
 
     private static ClickUpWebhookPayload.HistoryItem reduceComment(ClickUpWebhookPayload.HistoryItem item) {
