@@ -166,6 +166,14 @@ public class ClickUpClient {
     }
 
     /**
+     * The replies in the thread of a task comment, text included.
+     */
+    public List<TaskComment> getCommentReplies(String commentId) {
+        return http.execute("getCommentReplies", () -> api().get().uri("/comment/{commentId}/reply", commentId)
+                .retrieve().body(TaskCommentsResponse.class).commentsOrEmpty());
+    }
+
+    /**
      * Usernames of the Workspace's members, by user id.
      */
     public Map<Long, String> getMemberNames(String workspaceId) {

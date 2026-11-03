@@ -183,10 +183,32 @@ public class MentionForwarder {
             this.workspaceId = workspaceId;
         }
 
+        /**
+         * The comment, or the reply in one of the comments' threads (the task's comments don't list replies).
+         */
         TaskComment comment(String taskId, String commentId) {
-            return comments.computeIfAbsent(taskId, client::getTaskComments).stream()
-                    .filter(c -> Objects.equals(c.id(), commentId))
-                    .findFirst().orElse(null);
+            List<TaskComment> topLevel = comments.computeIfAbsent(taskId, client::getTaskComments);
+            TaskComment found = find(topLevel, commentId);
+            for (int i = 0; found == null && i < topLevel.size(); i++) {
+                TaskComment thread = topLevel.get(i);
+                if (thread.hasReplies()) {
+                    found = find(comments.computeIfAbsent("replies:" + thread.id(), _ -> replies(thread.id())),
+                            commentId);
+                }
+            }
+            return found;
+        }
+
+        private List<TaskComment> replies(String commentId) {
+            try {
+                return client.getCommentReplies(commentId);
+            } catch (RuntimeException e) {
+                return List.of();
+            }
+        }
+
+        private static TaskComment find(List<TaskComment> candidates, String commentId) {
+            return candidates.stream().filter(c -> Objects.equals(c.id(), commentId)).findFirst().orElse(null);
         }
 
         ChatMessage chatMessage(String channelId, String parentMessageId, String messageId) {
