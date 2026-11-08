@@ -111,14 +111,12 @@ class ParentStatusWorkflowTest {
     }
 
     @Test
-    void subtaskWaitingForInfoLeavesTheParentAlone() {
-        // E.g. after testing rejected it: the parent stays where the tester put it.
-        parent(BUG, "to do", "waiting info", "complete");
-        workflow.handle(event());
-        parent(BUG, "in testing", "waiting info", "in progress");
+    void subtaskWaitingForInfoKeepsTheParentInProgress() {
+        parent(BUG, "in testing", "waiting info", "complete");
+
         workflow.handle(event());
 
-        verify(client, never()).updateTask(anyString(), any());
+        verify(client).updateTask("parent", TaskUpdate.status("in progress"));
     }
 
     @Test

@@ -180,10 +180,11 @@ clickup:
       parent-types: [Story, Bug, Change, Feature, Defect, Task]
       skip-types: [Defect]
       fields: [Product Priority]
-    # When testing rejects a task (in testing -> in progress / to do), reopen its completed subtasks
+    # Off: a rejection no longer reopens subtasks, and a parent can't be moved out of step with its subtasks.
+    # When on: testing rejecting a task (in testing -> in progress / to do) reopens its completed subtasks
     # (see RejectionReopenWorkflow). Defects inside it have their own lifecycle and aren't reopened.
     rejection-reopen:
-      enabled: true
+      enabled: false
       task-types: [Story, Bug, Change, Feature, Defect]
       from-statuses: [in testing]
       to-statuses: [in progress, to do]

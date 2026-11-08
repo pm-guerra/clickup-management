@@ -13,15 +13,14 @@ import java.util.Set;
  * Which status a parent should have, given its subtasks' statuses. The least advanced subtask decides, top rule first:
  * <ol>
  *   <li>all pending -> pending; all pending or to do -> to do;</li>
- *   <li>all blocked -> blocked;</li>
- *   <li>any in progress or blocked, or a mix of started and not started -> in progress;</li>
+ *   <li>all blocked -> blocked; all waiting info -> waiting info;</li>
+ *   <li>any in progress, blocked or waiting info, or a mix of started and not started -> in progress;</li>
  *   <li>any in review -> review;</li>
  *   <li>any in ready_for_dev -> ready_for_dev if every subtask is mobile, else review;</li>
  *   <li>any in development -> in development;</li>
  *   <li>all complete -> in testing (Story/Bug/Change/Feature/Defect), complete (a Task wrapping tasks).</li>
  * </ol>
- * A subtask in in testing or approved (a nested Bug, say) counts as complete. While any subtask is in waiting
- * info nothing is decided: the parent is moved by hand.
+ * A subtask in in testing or approved (a nested Bug, say) counts as complete.
  * <p>
  * The app never pulls a parent back into the testers' stages before development (pending, in lobby, waiting info,
  * to do), and leaves a parent that testers moved on to approved or complete once all its subtasks are complete. A
@@ -45,13 +44,14 @@ public final class ParentStatusPolicy {
     private static final Set<String> BEFORE_DEVELOPMENT = Set.of(PENDING, IN_LOBBY, WAITING_INFO, TO_DO);
     private static final Set<String> AFTER_TESTING = Set.of(APPROVED, COMPLETE);
 
-    private enum Stage { PENDING, NOT_STARTED, BLOCKED, ACTIVE, REVIEW, READY_FOR_DEV, IN_DEVELOPMENT, DONE }
+    private enum Stage { PENDING, NOT_STARTED, BLOCKED, WAITING, ACTIVE, REVIEW, READY_FOR_DEV, IN_DEVELOPMENT, DONE }
 
     private static final Map<String, Stage> STAGES = Map.ofEntries(
             entry(PENDING, Stage.PENDING),
             entry(IN_LOBBY, Stage.NOT_STARTED),
             entry(TO_DO, Stage.NOT_STARTED),
             entry(BLOCKED, Stage.BLOCKED),
+            entry(WAITING_INFO, Stage.WAITING),
             entry(IN_PROGRESS, Stage.ACTIVE),
             entry(REVIEW, Stage.REVIEW),
             entry(READY_FOR_DEV, Stage.READY_FOR_DEV),
@@ -92,10 +92,6 @@ public final class ParentStatusPolicy {
         if (children.isEmpty()) {
             return Optional.empty();
         }
-        // The parent may rightly be in progress or waiting info then: people decide.
-        if (children.stream().anyMatch(c -> WAITING_INFO.equals(normalize(c.status())))) {
-            return Optional.empty();
-        }
         List<Stage> stages = new ArrayList<>();
         for (Child child : children) {
             Stage stage = STAGES.get(normalize(child.status()));
@@ -112,6 +108,9 @@ public final class ParentStatusPolicy {
         }
         if (stages.stream().allMatch(s -> s == Stage.BLOCKED)) {
             return Optional.of(BLOCKED);
+        }
+        if (stages.stream().allMatch(s -> s == Stage.WAITING)) {
+            return Optional.of(WAITING_INFO);
         }
         if (stages.stream().anyMatch(s -> s.compareTo(Stage.ACTIVE) <= 0)) {
             return Optional.of(IN_PROGRESS);
@@ -147,19 +146,11 @@ public final class ParentStatusPolicy {
     }
 
     /**
-     * @return true if a parent in {@code status} is further along than its subtasks ({@code derived}) allow
+     * @return true if a parent in {@code status} doesn't match what its subtasks ({@code derived}) call for, ahead or
+     *         behind; the statuses {@link #move} leaves alone (e.g. on hold) count as in step
      */
-    public static boolean isAhead(String status, String derived) {
-        String normalized = normalize(status);
-        Integer rank = RANKS.get(normalized);
-        Integer derivedRank = RANKS.get(derived);
-        if (rank == null || derivedRank == null) {
-            return false;
-        }
-        if (IN_TESTING.equals(derived) && AFTER_TESTING.contains(normalized)) {
-            return false;
-        }
-        return rank > derivedRank;
+    public static boolean isOutOfStep(String status, String derived) {
+        return move(status, derived).isPresent();
     }
 
     public static String normalize(String status) {

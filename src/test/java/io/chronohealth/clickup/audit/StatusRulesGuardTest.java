@@ -62,14 +62,26 @@ class StatusRulesGuardTest {
         assertThat(guard.blocks(move("bug", MARTIM, "review", "in testing"))).isTrue();
 
         verify(client).updateTask("bug", TaskUpdate.status("review"));
-        verify(client).addCommentMentioning(eq("bug"), eq(MARTIM), contains("can't be ahead of its subtasks"));
+        verify(client).addCommentMentioning(eq("bug"), eq(MARTIM), contains("a parent always follows its subtasks"));
     }
 
     @Test
-    void allowsMovingAParentBack() {
+    void undoesParentMovedBackBehindItsSubtasks() {
+        // A rejection no longer reopens the subtasks, so moving the parent back would leave it out of step.
         bug("in progress", task("s1", "bug", null, "complete"));
 
-        assertThat(guard.blocks(move("bug", MARTIM, "in testing", "in progress"))).isFalse();
+        assertThat(guard.blocks(move("bug", MARTIM, "in testing", "in progress"))).isTrue();
+
+        verify(client).updateTask("bug", TaskUpdate.status("in testing"));
+    }
+
+    @Test
+    void allowsMovesThatKeepTheParentInStep() {
+        bug("on hold", task("s1", "bug", null, "in progress"));
+        assertThat(guard.blocks(move("bug", MARTIM, "in progress", "on hold"))).isFalse();
+
+        bug("approved", task("s1", "bug", null, "complete"));
+        assertThat(guard.blocks(move("bug", MARTIM, "in testing", "approved"))).isFalse();
 
         verify(client, never()).updateTask(anyString(), any());
     }

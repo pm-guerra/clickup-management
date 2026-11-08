@@ -61,11 +61,10 @@ class ParentStatusPolicyTest {
     }
 
     @Test
-    void anySubtaskWaitingForInfoLeavesTheParentToPeople() {
-        assertThat(ParentStatusPolicy.derive(List.of(new Child("waiting info", false), new Child("complete", false)),
-                true)).isEmpty();
-        assertThat(ParentStatusPolicy.derive(List.of(new Child("Waiting Info", false),
-                new Child("in progress", false)), true)).isEmpty();
+    void waitingForInfoCountsAsPaused() {
+        assertThat(derive("waiting info", "complete")).isEqualTo("in progress");
+        assertThat(derive("Waiting Info", "review")).isEqualTo("in progress");
+        assertThat(derive("waiting info", "waiting info")).isEqualTo("waiting info");
     }
 
     @Test
@@ -93,13 +92,16 @@ class ParentStatusPolicyTest {
     }
 
     @Test
-    void parentAheadOfSubtasks() {
-        assertThat(ParentStatusPolicy.isAhead("in testing", "review")).isTrue();
-        assertThat(ParentStatusPolicy.isAhead("in progress", "to do")).isTrue();
-        assertThat(ParentStatusPolicy.isAhead("in progress", "review")).isFalse();
-        assertThat(ParentStatusPolicy.isAhead("to do", "pending")).isFalse();
-        assertThat(ParentStatusPolicy.isAhead("approved", "in testing")).isFalse();
-        assertThat(ParentStatusPolicy.isAhead("complete", "in testing")).isFalse();
+    void parentOutOfStepWithSubtasks() {
+        assertThat(ParentStatusPolicy.isOutOfStep("in testing", "review")).isTrue();
+        assertThat(ParentStatusPolicy.isOutOfStep("in progress", "to do")).isTrue();
+        assertThat(ParentStatusPolicy.isOutOfStep("in progress", "review")).isTrue();
+        assertThat(ParentStatusPolicy.isOutOfStep("in progress", "in testing")).isTrue();
+        assertThat(ParentStatusPolicy.isOutOfStep("review", "review")).isFalse();
+        assertThat(ParentStatusPolicy.isOutOfStep("to do", "pending")).isFalse();
+        assertThat(ParentStatusPolicy.isOutOfStep("approved", "in testing")).isFalse();
+        assertThat(ParentStatusPolicy.isOutOfStep("complete", "in testing")).isFalse();
+        assertThat(ParentStatusPolicy.isOutOfStep("on hold", "review")).isFalse();
     }
 
     private static String derive(String... statuses) {

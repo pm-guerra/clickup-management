@@ -23,8 +23,8 @@ import org.springframework.stereotype.Component;
  * Pedro and the app itself):
  * <ul>
  *   <li>a task moved to a status it may not be in ({@link StatusPlacement}): moved back to where it was;</li>
- *   <li>a parent moved ahead of its subtasks ({@link ParentStatusPolicy}): moved to where its subtasks put it.
- *       Moving a parent back (e.g. a rejection) is fine.</li>
+ *   <li>a parent moved out of step with its subtasks, ahead or back ({@link ParentStatusPolicy}): moved to where
+ *       its subtasks put it.</li>
  * </ul>
  * The person is mentioned in a comment and the event is blocked, so no workflow reacts to the undone move. Runs after
  * {@link EnforcementGuard}, which handles who may move what.
@@ -97,13 +97,13 @@ public class StatusRulesGuard implements EventGuard {
             return false;
         }
         Optional<String> derived = parentStatuses.derivedStatus(context.taskWithSubtasks(taskId), context);
-        if (derived.isEmpty() || !ParentStatusPolicy.isAhead(attempted, derived.get())) {
+        if (derived.isEmpty() || !ParentStatusPolicy.isOutOfStep(attempted, derived.get())) {
             return false;
         }
         String target = ParentStatusPolicy.move(previous, derived.get()).orElse(previous);
         return undo(context, task, move, target,
-                "you moved this to '" + attempted + "', but its subtasks are only at '" + derived.get()
-                        + "' and a parent can't be ahead of its subtasks. I moved it to '" + target + "'.");
+                "you moved this to '" + attempted + "', but its subtasks are at '" + derived.get()
+                        + "' and a parent always follows its subtasks. I moved it to '" + target + "'.");
     }
 
     private boolean undo(AuditContext context, Task task, HistoryItem move, String target, String message) {
