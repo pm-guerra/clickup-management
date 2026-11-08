@@ -1,5 +1,6 @@
 package io.chronohealth.clickup.event;
 
+import io.chronohealth.clickup.client.ClickUpHttp;
 import io.chronohealth.clickup.mention.ChatMentionPoller;
 import io.chronohealth.clickup.mention.MentionForwarder;
 import java.time.Clock;
@@ -17,7 +18,8 @@ import org.springframework.stereotype.Service;
  * The webhook only stores events, so this is where all ClickUp work happens.
  * <p>
  * Events are processed one at a time, at most one every {@code pacing}, so bursts (e.g. a bulk tag edit) stay under
- * ClickUp's rate limit instead of hammering it. A run stops after {@code run-budget} so it finishes before the next
+ * ClickUp's rate limit instead of hammering it. Only events that called ClickUp are paced: most {@code taskUpdated}
+ * events concern no workflow and are done without a call, and waiting after them would back up the inbox. A run stops after {@code run-budget} so it finishes before the next
  * trigger; whatever is left is picked up by the next run. Only one run executes at a time.
  * <p>
  * Triggered by Cloud Scheduler via {@code POST /admin/events/process-due} every minute when deployed (Cloud Run
@@ -35,16 +37,18 @@ public class EventRetryJob {
     private final Clock clock;
     private final ChatMentionPoller chatMentions;
     private final MentionForwarder mentionForwarder;
+    private final ClickUpHttp http;
     private final AtomicBoolean running = new AtomicBoolean(false);
 
     public EventRetryJob(EventRepository repository, EventProcessor processor, EventProperties properties, Clock clock,
-                         ChatMentionPoller chatMentions, MentionForwarder mentionForwarder) {
+                         ChatMentionPoller chatMentions, MentionForwarder mentionForwarder, ClickUpHttp http) {
         this.repository = repository;
         this.processor = processor;
         this.properties = properties;
         this.clock = clock;
         this.chatMentions = chatMentions;
         this.mentionForwarder = mentionForwarder;
+        this.http = http;
     }
 
     public RunResult run() {
@@ -101,8 +105,10 @@ public class EventRetryJob {
                 if (!waitUntil(nextStart, deadline)) {
                     break batches;
                 }
-                nextStart = clock.instant().plus(properties.pacing());
+                Instant started = clock.instant();
+                long callsBefore = http.callCount();
                 EventStatus status = processor.process(id).orElse(null);
+                nextStart = http.callCount() == callsBefore ? clock.instant() : started.plus(properties.pacing());
                 if (status == null) {
                     continue;
                 }

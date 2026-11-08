@@ -6,23 +6,27 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import io.chronohealth.clickup.client.ClickUpHttp;
 import io.chronohealth.clickup.mention.ChatMentionPoller;
 import io.chronohealth.clickup.mention.MentionForwarder;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import org.junit.jupiter.api.Test;
 
 class EventRetryJobTest {
 
     private final EventRepository repository = mock(EventRepository.class);
     private final EventProcessor processor = mock(EventProcessor.class);
+    private final ClickUpHttp http = mock(ClickUpHttp.class);
+    private final AtomicLong calls = new AtomicLong();
 
     @Test
     void pacesEventsAtTheConfiguredInterval() {
         when(repository.findDueIds(anyInt())).thenReturn(List.of(1L, 2L, 3L), List.of());
-        when(processor.process(anyLong())).thenReturn(Optional.of(EventStatus.SUCCEEDED));
+        eventsCallClickUp(true);
 
         long start = System.nanoTime();
         EventRetryJob.RunResult result = job(Duration.ofMillis(100), Duration.ofSeconds(5)).run();
@@ -36,7 +40,7 @@ class EventRetryJobTest {
     @Test
     void stopsAtTheRunBudgetAndLeavesTheRestForTheNextRun() {
         when(repository.findDueIds(anyInt())).thenReturn(List.of(1L, 2L, 3L, 4L, 5L));
-        when(processor.process(anyLong())).thenReturn(Optional.of(EventStatus.SUCCEEDED));
+        eventsCallClickUp(true);
 
         EventRetryJob.RunResult result = job(Duration.ofMillis(200), Duration.ofMillis(500)).run();
 
@@ -44,10 +48,33 @@ class EventRetryJobTest {
         assertThat(result.succeeded()).isEqualTo(3);
     }
 
+    @Test
+    void doesNotWaitAfterEventsThatMadeNoClickUpCall() {
+        when(repository.findDueIds(anyInt())).thenReturn(List.of(1L, 2L, 3L, 4L, 5L), List.of());
+        eventsCallClickUp(false);
+
+        long start = System.nanoTime();
+        EventRetryJob.RunResult result = job(Duration.ofSeconds(1), Duration.ofSeconds(5)).run();
+        long elapsedMs = (System.nanoTime() - start) / 1_000_000;
+
+        assertThat(result.succeeded()).isEqualTo(5);
+        assertThat(elapsedMs).isLessThan(1000);
+    }
+
+    private void eventsCallClickUp(boolean callsClickUp) {
+        when(http.callCount()).thenAnswer(_ -> calls.get());
+        when(processor.process(anyLong())).thenAnswer(_ -> {
+            if (callsClickUp) {
+                calls.incrementAndGet();
+            }
+            return Optional.of(EventStatus.SUCCEEDED);
+        });
+    }
+
     private EventRetryJob job(Duration pacing, Duration budget) {
         EventProperties properties = new EventProperties(8, Duration.ofMinutes(1), Duration.ofHours(6),
                 Duration.ofMinutes(5), 20, pacing, budget, Duration.ofDays(30), new EventProperties.Scheduler(false));
         return new EventRetryJob(repository, processor, properties, Clock.systemUTC(), mock(ChatMentionPoller.class),
-                mock(MentionForwarder.class));
+                mock(MentionForwarder.class), http);
     }
 }

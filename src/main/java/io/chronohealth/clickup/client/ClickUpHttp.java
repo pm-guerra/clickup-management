@@ -6,6 +6,7 @@ import java.net.http.HttpClient;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,6 +33,7 @@ public class ClickUpHttp {
     private final JsonMapper jsonMapper;
     private final ClickUpProperties.RateLimit rateLimit;
     private final Clock clock;
+    private final AtomicLong calls = new AtomicLong();
 
     public ClickUpHttp(RestClient.Builder builder, JsonMapper jsonMapper, ClickUpProperties properties, Clock clock) {
         this.jsonMapper = jsonMapper;
@@ -75,12 +77,20 @@ public class ClickUpHttp {
     }
 
     /**
+     * ClickUp calls made so far (retries included), to pace work by the calls it actually makes.
+     */
+    public long callCount() {
+        return calls.get();
+    }
+
+    /**
      * Runs a ClickUp call, waiting and retrying when rate limited (HTTP 429).
      */
     public <T> T execute(String operation, Supplier<T> call) {
         int attempt = 0;
         while (true) {
             try {
+                calls.incrementAndGet();
                 return call.get();
             } catch (ClickUpRateLimitedException e) {
                 attempt++;
