@@ -142,6 +142,7 @@ class PrioritySyncWorkflowTest {
                         new ClickUpProperties.RejectionReopen(false, List.of(), List.of(), List.of(), List.of(),
                                 "waiting info", List.of()),
                         new ClickUpProperties.PrioritySync(true, List.of("Story", "Bug", "Change", "Task"),
-                                List.of("Defect"), List.of("Product Priority"))));
+                                List.of("Defect"), List.of("Product Priority")),
+                        new ClickUpProperties.PointsReminder(false, List.of(), List.of())));
     }
 }

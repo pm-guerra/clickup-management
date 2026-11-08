@@ -97,7 +97,8 @@ class CopyParentFieldsWorkflowTest {
                         new ClickUpProperties.CreateDefaults(false, List.of()),
                         new ClickUpProperties.RejectionReopen(false, List.of(), List.of(), List.of(), List.of(),
                                 "waiting info", List.of()),
-                        new ClickUpProperties.PrioritySync(false, List.of(), List.of(), List.of())));
+                        new ClickUpProperties.PrioritySync(false, List.of(), List.of(), List.of()),
+                        new ClickUpProperties.PointsReminder(false, List.of(), List.of())));
         return new CopyParentFieldsWorkflow(factory, new CustomFieldValueMapper(), properties, MAPPER);
     }
 

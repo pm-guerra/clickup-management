@@ -191,6 +191,12 @@ clickup:
       reopen-statuses: [complete]
       reopen-to: waiting info
       ignored-subtask-types: [Defect]
+    # Whoever moves a Feature, Bug or Change to "to do" without sprint points is asked in a comment to add them
+    # (see SprintPointsReminderWorkflow).
+    points-reminder:
+      enabled: true
+      task-types: [Feature, Bug, Change]
+      statuses: [to do]
     # When a task is created, set field defaults by task type (see CreateDefaultsWorkflow).
     create-defaults:
       enabled: true

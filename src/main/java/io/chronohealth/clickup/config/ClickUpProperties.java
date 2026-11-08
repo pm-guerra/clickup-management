@@ -29,7 +29,26 @@ public record ClickUpProperties(
     public record Workflows(@Valid @NotNull CopyParentFields copyParentFields, @Valid @NotNull TagSubtasks tagSubtasks,
                             @Valid @NotNull ParentStatus parentStatus, @Valid @NotNull CreateDefaults createDefaults,
                             @Valid @NotNull RejectionReopen rejectionReopen,
-                            @Valid @NotNull PrioritySync prioritySync) {
+                            @Valid @NotNull PrioritySync prioritySync,
+                            @Valid @NotNull PointsReminder pointsReminder) {
+    }
+
+    /**
+     * Asks whoever moves a task of {@code taskTypes} to one of {@code statuses} for its sprint points when it has none
+     * (see SprintPointsReminderWorkflow).
+     *
+     * @param taskTypes task types this applies to (Feature, Bug, Change)
+     * @param statuses  statuses that call for an estimate ("to do")
+     */
+    public record PointsReminder(boolean enabled, List<String> taskTypes, List<String> statuses) {
+
+        public List<String> taskTypesOrEmpty() {
+            return taskTypes == null ? List.of() : taskTypes;
+        }
+
+        public List<String> statusesOrEmpty() {
+            return statuses == null ? List.of() : statuses;
+        }
     }
 
     /**

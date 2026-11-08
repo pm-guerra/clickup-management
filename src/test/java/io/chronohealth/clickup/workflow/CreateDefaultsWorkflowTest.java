@@ -120,6 +120,7 @@ class CreateDefaultsWorkflowTest {
                                 new ClickUpProperties.CreateDefault(List.of("Defect"), "maintenance", null, true))),
                         new ClickUpProperties.RejectionReopen(false, List.of(), List.of(), List.of(), List.of(),
                                 "waiting info", List.of()),
-                        new ClickUpProperties.PrioritySync(false, List.of(), List.of(), List.of())));
+                        new ClickUpProperties.PrioritySync(false, List.of(), List.of(), List.of()),
+                        new ClickUpProperties.PointsReminder(false, List.of(), List.of())));
     }
 }
