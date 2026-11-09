@@ -42,19 +42,32 @@ public class ParentStatuses {
         return isOneOf(context.typeName(task), config.testingTypesOrEmpty());
     }
 
+    /**
+     * Whether testing may move the task back (a rejection) instead of it always following its subtasks (Defects).
+     */
+    public boolean isRejectable(Task task, AuditContext context) {
+        return isOneOf(context.typeName(task), config.rejectableTypesOrEmpty());
+    }
+
     public List<String> testingTypes() {
         return config.testingTypesOrEmpty();
     }
 
     /**
      * @param parent the task, fetched with its subtasks
-     * @return the status its subtasks call for; empty if it isn't managed or has no subtasks
+     * @return the status its subtasks call for; empty if it isn't managed, has no subtasks, or is rejectable and
+     *         a subtask is in waiting info (reopened by a rejection: the parent stays where testing put it)
      */
     public Optional<String> derivedStatus(Task parent, AuditContext context) {
         if (!manages(parent, context) || parent.subtasksOrEmpty().isEmpty()) {
             return Optional.empty();
         }
-        return ParentStatusPolicy.derive(children(parent, context), isTestingType(parent, context));
+        List<Child> children = children(parent, context);
+        if (isRejectable(parent, context) && children.stream()
+                .anyMatch(c -> ParentStatusPolicy.WAITING_INFO.equals(ParentStatusPolicy.normalize(c.status())))) {
+            return Optional.empty();
+        }
+        return ParentStatusPolicy.derive(children, isTestingType(parent, context));
     }
 
     /**

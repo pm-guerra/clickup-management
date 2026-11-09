@@ -24,7 +24,7 @@ import org.springframework.stereotype.Component;
  * <ul>
  *   <li>a task moved to a status it may not be in ({@link StatusPlacement}): moved back to where it was;</li>
  *   <li>a parent moved out of step with its subtasks, ahead or back ({@link ParentStatusPolicy}): moved to where
- *       its subtasks put it.</li>
+ *       its subtasks put it. A rejectable parent (a Defect) may be moved back: that's testing rejecting it.</li>
  * </ul>
  * The person is mentioned in a comment and the event is blocked, so no workflow reacts to the undone move. Runs after
  * {@link EnforcementGuard}, which handles who may move what.
@@ -97,7 +97,10 @@ public class StatusRulesGuard implements EventGuard {
             return false;
         }
         Optional<String> derived = parentStatuses.derivedStatus(context.taskWithSubtasks(taskId), context);
-        if (derived.isEmpty() || !ParentStatusPolicy.isOutOfStep(attempted, derived.get())) {
+        boolean outOfStep = derived.isPresent() && (parentStatuses.isRejectable(task, context)
+                ? ParentStatusPolicy.isAhead(attempted, derived.get())
+                : ParentStatusPolicy.isOutOfStep(attempted, derived.get()));
+        if (!outOfStep) {
             return false;
         }
         String target = ParentStatusPolicy.move(previous, derived.get()).orElse(previous);

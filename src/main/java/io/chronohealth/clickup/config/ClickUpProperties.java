@@ -157,8 +157,17 @@ public record ClickUpProperties(
             List<String> parentTypes,
             List<String> testingTypes,
             @NotBlank String mobileStream,
-            List<String> ignoredChildTypes
+            List<String> ignoredChildTypes,
+            List<String> rejectableTypes
     ) {
+
+        /**
+         * Types testing may move back (a rejection, which reopens their subtasks into waiting info); while one of
+         * their subtasks is in waiting info they're left where people put them (Defects).
+         */
+        public List<String> rejectableTypesOrEmpty() {
+            return rejectableTypes == null ? List.of() : rejectableTypes;
+        }
 
         public List<String> parentTypesOrEmpty() {
             return parentTypes == null ? List.of() : parentTypes;

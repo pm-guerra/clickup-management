@@ -20,7 +20,7 @@ public final class ParentStatusTestSupport {
                         new ClickUpProperties.TagSubtasks(false, List.of()),
                         new ClickUpProperties.ParentStatus(true,
                                 List.of("Story", "Bug", "Change", "Feature", "Defect", "Task"),
-                                List.of("Story", "Bug", "Change", "Feature", "Defect"), "mobile", List.of("Defect")),
+                                List.of("Story", "Bug", "Change", "Feature", "Defect"), "mobile", List.of("Defect"), List.of("Defect")),
                         new ClickUpProperties.CreateDefaults(false, List.of()),
                         new ClickUpProperties.RejectionReopen(false, List.of(), List.of(), List.of(), List.of(),
                                 "waiting info", List.of()),

@@ -153,6 +153,22 @@ public final class ParentStatusPolicy {
         return move(status, derived).isPresent();
     }
 
+    /**
+     * @return true if a parent in {@code status} is further along than its subtasks ({@code derived}) allow
+     */
+    public static boolean isAhead(String status, String derived) {
+        String normalized = normalize(status);
+        Integer rank = RANKS.get(normalized);
+        Integer derivedRank = RANKS.get(derived);
+        if (rank == null || derivedRank == null) {
+            return false;
+        }
+        if (IN_TESTING.equals(derived) && AFTER_TESTING.contains(normalized)) {
+            return false;
+        }
+        return rank > derivedRank;
+    }
+
     public static String normalize(String status) {
         return status == null ? "" : status.trim().toLowerCase(Locale.ROOT);
     }

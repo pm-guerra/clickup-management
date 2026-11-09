@@ -219,7 +219,7 @@ class TagSubtaskWorkflowTest {
                 new ClickUpProperties.RateLimit(0, Duration.ofSeconds(1)),
                 new ClickUpProperties.Workflows(new ClickUpProperties.CopyParentFields(false, "{}", ""),
                         new ClickUpProperties.TagSubtasks(enabled, rules),
-                        new ClickUpProperties.ParentStatus(false, List.of(), List.of(), "mobile", List.of("Defect")),
+                        new ClickUpProperties.ParentStatus(false, List.of(), List.of(), "mobile", List.of("Defect"), List.of()),
                         new ClickUpProperties.CreateDefaults(false, List.of()),
                         new ClickUpProperties.RejectionReopen(false, List.of(), List.of(), List.of(), List.of(),
                                 "waiting info", List.of()),

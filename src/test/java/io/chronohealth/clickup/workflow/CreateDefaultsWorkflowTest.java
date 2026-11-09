@@ -113,7 +113,7 @@ class CreateDefaultsWorkflowTest {
                 Duration.ofSeconds(1), Duration.ofSeconds(1), new ClickUpProperties.RateLimit(0, Duration.ofSeconds(1)),
                 new ClickUpProperties.Workflows(new ClickUpProperties.CopyParentFields(false, "{}", ""),
                         new ClickUpProperties.TagSubtasks(false, List.of()),
-                        new ClickUpProperties.ParentStatus(false, List.of(), List.of(), "mobile", List.of("Defect")),
+                        new ClickUpProperties.ParentStatus(false, List.of(), List.of(), "mobile", List.of("Defect"), List.of()),
                         new ClickUpProperties.CreateDefaults(true, List.of(
                                 new ClickUpProperties.CreateDefault(List.of("Bug", "Change"), "maintenance", "true",
                                         null),

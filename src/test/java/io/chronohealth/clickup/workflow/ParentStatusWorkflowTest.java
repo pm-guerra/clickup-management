@@ -120,6 +120,15 @@ class ParentStatusWorkflowTest {
     }
 
     @Test
+    void rejectedDefectStaysWhereTestingPutItWhileItsSubtasksAreReopened() {
+        parent(DEFECT, "in progress", "waiting info", "complete");
+
+        workflow.handle(event());
+
+        verify(client, never()).updateTask(anyString(), any());
+    }
+
+    @Test
     void newSubtaskPullsParentBack() {
         parent(BUG, "review", "review", "to do");
 

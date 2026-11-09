@@ -180,12 +180,11 @@ clickup:
       parent-types: [Story, Bug, Change, Feature, Defect, Task]
       skip-types: [Defect]
       fields: [Product Priority]
-    # Off: a rejection no longer reopens subtasks, and a parent can't be moved out of step with its subtasks.
-    # When on: testing rejecting a task (in testing -> in progress / to do) reopens its completed subtasks
-    # (see RejectionReopenWorkflow). Defects inside it have their own lifecycle and aren't reopened.
+    # When testing rejects a Defect (in testing -> in progress / to do), reopen its completed subtasks
+    # (see RejectionReopenWorkflow). Only Defects: every other parent always follows its subtasks.
     rejection-reopen:
-      enabled: false
-      task-types: [Story, Bug, Change, Feature, Defect]
+      enabled: true
+      task-types: [Defect]
       from-statuses: [in testing]
       to-statuses: [in progress, to do]
       reopen-statuses: [complete]
@@ -219,6 +218,9 @@ clickup:
       mobile-stream: mobile
       # Defects have their own lifecycle: they don't move the task they're in
       ignored-child-types: [Defect]
+      # Testing may reject these (in testing -> in progress / to do), which reopens their subtasks into waiting info;
+      # until those move on, the parent stays where testing put it. Every other parent always follows its subtasks.
+      rejectable-types: [Defect]
     # When a tag is added to a task, create a subtask under it (see TagSubtaskWorkflow).
     # Fields are matched by name on the parent's list; missing fields are skipped with a warning.
     tag-subtasks:

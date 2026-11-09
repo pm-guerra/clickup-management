@@ -36,6 +36,7 @@ class StatusRulesGuardTest {
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
     private static final long BUG = 1001L;
     private static final long EPIC = 1003L;
+    private static final long DEFECT = 1010L;
     private static final long PEDRO = 100796657L;
     private static final long MARTIM = 106791322L;
 
@@ -52,7 +53,8 @@ class StatusRulesGuardTest {
                 new StatusPlacement(kinds, parentStatuses), parentStatuses, properties);
         when(factory.forWorkspace("ws")).thenReturn(client);
         when(client.getCustomTaskTypes("ws")).thenReturn(List.of(
-                new CustomTaskType(BUG, "Bug"), new CustomTaskType(EPIC, "Epic")));
+                new CustomTaskType(BUG, "Bug"), new CustomTaskType(EPIC, "Epic"),
+                new CustomTaskType(DEFECT, "Defect")));
     }
 
     @Test
@@ -73,6 +75,18 @@ class StatusRulesGuardTest {
         assertThat(guard.blocks(move("bug", MARTIM, "in testing", "in progress"))).isTrue();
 
         verify(client).updateTask("bug", TaskUpdate.status("in testing"));
+    }
+
+    @Test
+    void testingMayRejectADefect() {
+        Task defect = new Task("defect", "name", "bug", DEFECT, new TaskStatus("in progress", null, null), null,
+                new IdRef("list"), List.of(), List.of(), List.of(), List.of(task("s1", "defect", null, "complete")));
+        when(client.getTask("defect")).thenReturn(defect);
+        when(client.getTask("defect", true)).thenReturn(defect);
+
+        assertThat(guard.blocks(move("defect", MARTIM, "in testing", "in progress"))).isFalse();
+
+        verify(client, never()).updateTask(anyString(), any());
     }
 
     @Test
