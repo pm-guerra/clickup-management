@@ -14,7 +14,8 @@ import org.springframework.validation.annotation.Validated;
  * @param overlap         each run starts this much before the previous one ended, so nothing is missed at the edges
  * @param apiPacing       minimum time between ClickUp calls made by rules (task lookups)
  * @param maxPages        safety cap on result pages (100 tasks each) per run
- * @param listIds         only audit these lists; empty for the whole Workspace
+ * @param listIds         the lists the app manages (rules, workflows, audit, reconcile; mentions work anywhere);
+ *                        empty for the whole Workspace
  * @param notifyChannelId ClickUp Chat channel the report is posted to; takes precedence over {@code notifyUserId}
  * @param notifyUserId    ClickUp user id that gets the report as a direct message when no channel is set
  * @param rulesDocUrl     link to the rules doc, added to reports and undo comments

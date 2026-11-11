@@ -13,5 +13,13 @@ public interface EventHandler {
      */
     Set<String> eventTypes();
 
+    /**
+     * True for handlers that react on any list (mentions of the bot); the others only see events for tasks on the
+     * managed lists ({@link ListScope}).
+     */
+    default boolean everyList() {
+        return false;
+    }
+
     void handle(ClickUpEvent event);
 }

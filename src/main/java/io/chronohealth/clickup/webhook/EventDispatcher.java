@@ -8,6 +8,9 @@ import org.springframework.stereotype.Component;
 /**
  * Routes normalized events to the business workflows that subscribed to their type. {@link EventGuard}s run first:
  * if one blocks the event (e.g. it undid a forbidden change), no workflow reacts to it.
+ * <p>
+ * Tasks off the managed lists ({@link ListScope}) reach neither guards nor workflows, only the handlers that react on
+ * every list (mentions of the bot).
  */
 @Component
 public class EventDispatcher {
@@ -16,23 +19,33 @@ public class EventDispatcher {
 
     private final List<EventHandler> handlers;
     private final List<EventGuard> guards;
+    private final ListScope scope;
 
-    public EventDispatcher(List<EventHandler> handlers, List<EventGuard> guards) {
+    public EventDispatcher(List<EventHandler> handlers, List<EventGuard> guards, ListScope scope) {
         this.handlers = handlers;
         this.guards = guards;
+        this.scope = scope;
     }
 
     public void dispatch(ClickUpEvent event) {
-        for (EventGuard guard : guards) {
-            if (guard.blocks(event)) {
-                log.info("{} for task {} was blocked by {}; workflows skipped", event.type(), event.taskId(),
-                        guard.getClass().getSimpleName());
-                return;
-            }
-        }
         List<EventHandler> matching = handlers.stream()
                 .filter(h -> h.eventTypes().contains(event.type()))
                 .toList();
+        if (!scope.covers(event)) {
+            matching = matching.stream().filter(EventHandler::everyList).toList();
+            if (matching.isEmpty()) {
+                log.debug("{} for task {} is off the managed lists; skipped", event.type(), event.taskId());
+                return;
+            }
+        } else {
+            for (EventGuard guard : guards) {
+                if (guard.blocks(event)) {
+                    log.info("{} for task {} was blocked by {}; workflows skipped", event.type(), event.taskId(),
+                            guard.getClass().getSimpleName());
+                    return;
+                }
+            }
+        }
         if (matching.isEmpty()) {
             log.debug("No handler for event {} (task {})", event.type(), event.taskId());
             return;

@@ -65,7 +65,7 @@ public class ParentReconciler {
 
         Map<String, Task> tasks = new LinkedHashMap<>();
         for (int page = 0; page < MAX_PAGES; page++) {
-            TaskPage result = client.getTasksUpdatedSince(workspaceId, Instant.EPOCH, List.of(), page);
+            TaskPage result = client.getTasksUpdatedSince(workspaceId, Instant.EPOCH, properties.listIdsOrEmpty(), page);
             result.tasksOrEmpty().forEach(t -> tasks.put(t.id(), t));
             if (result.isLastPage() || result.tasksOrEmpty().isEmpty()) {
                 break;

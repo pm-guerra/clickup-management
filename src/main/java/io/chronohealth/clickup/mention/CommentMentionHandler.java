@@ -40,6 +40,11 @@ public class CommentMentionHandler implements EventHandler {
     }
 
     @Override
+    public boolean everyList() {
+        return true;
+    }
+
+    @Override
     public void handle(ClickUpEvent event) {
         for (HistoryItem item : event.historyItems()) {
             Long author = item.user() == null ? null : item.user().id();

@@ -88,8 +88,9 @@ app:
     overlap: 5m
     api-pacing: 1s
     max-pages: 20
-    # Empty = whole Workspace
-    list-ids: []
+    # The lists the app manages: rules, undos, workflows, this audit and the parent reconcile only look at tasks on
+    # these (the Product list). Mentions of Octo bot work on any list. Empty = whole Workspace.
+    list-ids: [901519246658]
     # Report goes to this ClickUp Chat channel; or, if empty, as a DM to notify-user-id
     notify-channel-id: ${AUDIT_NOTIFY_CHANNEL_ID:}
     notify-user-id: ${AUDIT_NOTIFY_USER_ID:}
