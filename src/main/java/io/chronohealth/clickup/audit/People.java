@@ -1,6 +1,7 @@
 package io.chronohealth.clickup.audit;
 
 import io.chronohealth.clickup.audit.AuditProperties.Person;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
@@ -18,10 +19,14 @@ public class People {
     public enum Role { ADMIN, TESTER, DEV }
 
     private final Map<String, Person> byId;
+    private final List<List<String>> sharedStreams;
 
     public People(AuditProperties properties) {
         this.byId = properties.peopleOrEmpty().stream()
                 .collect(Collectors.toMap(Person::id, Function.identity(), (a, _) -> a));
+        this.sharedStreams = properties.sharedStreamsOrEmpty().stream()
+                .map(group -> group.stream().map(s -> s.trim().toLowerCase(Locale.ROOT)).toList())
+                .toList();
     }
 
     public Optional<Role> role(Long userId) {
@@ -30,6 +35,23 @@ public class People {
 
     public Optional<String> stream(Long userId) {
         return person(userId).map(Person::stream).map(s -> s.trim().toLowerCase(Locale.ROOT));
+    }
+
+    /**
+     * Whether the person's devs work on {@code stream}: their own, or one sharing a group with it (web and mobile).
+     */
+    public boolean worksOn(Long userId, String stream) {
+        String wanted = stream.trim().toLowerCase(Locale.ROOT);
+        return stream(userId).filter(own -> own.equals(wanted)
+                || sharedStreams.stream().anyMatch(group -> group.contains(own) && group.contains(wanted))).isPresent();
+    }
+
+    /**
+     * The streams whose tasks the devs of {@code stream} may move: their own plus those sharing a group with it.
+     */
+    public List<String> streamsSharing(String stream) {
+        String own = stream.trim().toLowerCase(Locale.ROOT);
+        return sharedStreams.stream().filter(group -> group.contains(own)).findFirst().orElse(List.of(own));
     }
 
     public boolean isEnforced(Long userId) {

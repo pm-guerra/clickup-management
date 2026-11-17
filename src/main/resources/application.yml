@@ -116,6 +116,8 @@ app:
     # Testers move these; devs move the stream tasks under them
     main-task-types: [Story, Bug, Change, Feature, Defect, Epic]
     streams: [backend, web, mobile]
+    # Devs of these streams may move each other's stream tasks
+    shared-streams: [[web, mobile]]
     scheduler:
       # Local in-process trigger; on Cloud Run, Cloud Scheduler calls POST /admin/audit/run hourly.
       enabled: ${AUDIT_SCHEDULER_ENABLED:false}

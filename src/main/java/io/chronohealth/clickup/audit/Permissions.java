@@ -38,7 +38,7 @@ public class Permissions {
             case ADMIN -> true;
             case TESTER -> kind.kind() == Kind.MAIN;
             case DEV -> kind.kind() == Kind.STREAM
-                    && (kind.stream().isEmpty() || kind.stream().equals(people.stream(userId)));
+                    && (kind.stream().isEmpty() || people.worksOn(userId, kind.stream().get()));
         };
     }
 
@@ -53,7 +53,8 @@ public class Permissions {
     public String whoMayMove(Classification kind) {
         return kind.kind() == Kind.MAIN
                 ? "Only testers and admins may move Stories/Features/Bugs/Changes/Defects/Epics."
-                : "Only " + kind.stream().map(s -> s + " devs").orElse("devs") + " and admins may move this stream task.";
+                : "Only " + kind.stream().map(s -> String.join(" or ", people.streamsSharing(s)) + " devs").orElse("devs")
+                        + " and admins may move this stream task.";
     }
 
     public String whoMayTag() {

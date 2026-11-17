@@ -22,6 +22,7 @@ import org.springframework.validation.annotation.Validated;
  * @param people          who's who, for the permission rules (anyone not listed has no permissions)
  * @param mainTaskTypes   task types testers may move (Story, Bug, Change, Epic)
  * @param streams         stream names, also the stream tags (backend, web, mobile)
+ * @param sharedStreams   groups of streams whose devs may move each other's stream tasks (web and mobile)
  * @param scheduler       in-process hourly trigger for local runs; on Cloud Run, Cloud Scheduler calls the endpoint
  * @param rules           per-rule settings
  */
@@ -40,6 +41,7 @@ public record AuditProperties(
         List<@Valid Person> people,
         List<String> mainTaskTypes,
         List<String> streams,
+        List<List<String>> sharedStreams,
         @Valid @NotNull Scheduler scheduler,
         @Valid @NotNull Rules rules
 ) {
@@ -62,6 +64,10 @@ public record AuditProperties(
 
     public List<String> streamsOrEmpty() {
         return streams == null ? List.of() : streams;
+    }
+
+    public List<List<String>> sharedStreamsOrEmpty() {
+        return sharedStreams == null ? List.of() : sharedStreams;
     }
 
     /**

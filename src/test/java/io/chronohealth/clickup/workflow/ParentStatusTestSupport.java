@@ -34,6 +34,7 @@ public final class ParentStatusTestSupport {
                 List.of(new AuditProperties.Person("100796657", "Pedro", "admin", null, null, true),
                         new AuditProperties.Person("106791322", "Martim", "tester", null, null, null)),
                 List.of("Story", "Bug", "Change", "Feature", "Epic"), List.of("backend", "web", "mobile"),
+                List.of(),
                 new AuditProperties.Scheduler(false),
                 new AuditProperties.Rules(
                         new AuditProperties.StreamTaskStatus(true, List.of("Story", "Bug", "Change", "Feature"),

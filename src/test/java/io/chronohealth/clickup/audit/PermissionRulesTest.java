@@ -48,6 +48,7 @@ class PermissionRulesTest {
         context.remember(task("bug", "Login bug", null, BUG));
         context.remember(task("mobile", "Mobile | Login bug", "bug", null, "mobile"));
         context.remember(task("legacy", "Backend", "bug", null));
+        context.remember(task("web", "Web | Login bug", "bug", null, "web"));
         context.remember(task("subsub", "Fix the API call", "mobile", null));
         context.remember(task("nested", "Nested bug", "story", BUG));
         context.remember(task("story", "Story", null, STORY));
@@ -79,12 +80,19 @@ class PermissionRulesTest {
         assertThat(statusRule.check(move("legacy", LUIS), context)).isEmpty();
 
         assertThat(statusRule.check(move("mobile", LUIS), context)).singleElement().asString()
-                .contains("Only mobile devs and admins").doesNotContain("Undone");
+                .contains("Only web or mobile devs and admins").doesNotContain("Undone");
         // Vivek is enforced: the report says it was undone.
         assertThat(statusRule.check(move("bug", VIVEK), context)).singleElement().asString()
                 .endsWith("Undone automatically.");
         assertThat(statusRule.check(move("subsub", MARTIM), context)).hasSize(1);
         assertThat(statusRule.check(move("legacy", VIVEK), context)).hasSize(1);
+    }
+
+    @Test
+    void webAndMobileDevsMoveEachOthersTasks() {
+        assertThat(statusRule.check(move("web", VIVEK), context)).isEmpty();
+        assertThat(statusRule.check(move("web", LUIS), context)).singleElement().asString()
+                .contains("Only web or mobile devs and admins");
     }
 
     @Test
@@ -155,6 +163,7 @@ class PermissionRulesTest {
                         new AuditProperties.Person("112510284", "Luís", "dev", "backend", null, null),
                         new AuditProperties.Person("278564675", "Vivek", "dev", "mobile", true, null)),
                 List.of("Story", "Bug", "Change", "Epic"), List.of("backend", "web", "mobile"),
+                List.of(List.of("web", "mobile")),
                 new AuditProperties.Scheduler(false),
                 new AuditProperties.Rules(
                         new AuditProperties.StreamTaskStatus(true, List.of("Story", "Bug", "Change"), List.of("Task"),
