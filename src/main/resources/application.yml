@@ -112,7 +112,6 @@ app:
       - { id: "278564675", name: Vivek, role: dev, stream: mobile, enforce: true }
       - { id: "308507562", name: Sebastian, role: dev, stream: mobile, enforce: true }
       - { id: "106773419", name: Nubelson, role: dev, stream: web, enforce: true }
-      - { id: "106655756", name: Danylo, role: dev, stream: web, enforce: true }
     # Testers move these; devs move the stream tasks under them
     main-task-types: [Story, Bug, Change, Feature, Defect, Epic]
     streams: [backend, web, mobile]
