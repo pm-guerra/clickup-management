@@ -24,7 +24,14 @@ public class TaskKinds {
 
     public enum Kind { MAIN, STREAM, OTHER }
 
-    public record Classification(Kind kind, Optional<String> stream) {
+    /**
+     * @param type the task's type, lower case (e.g. "feature"; "task" for stream tasks)
+     */
+    public record Classification(Kind kind, Optional<String> stream, String type) {
+
+        public Classification(Kind kind, Optional<String> stream) {
+            this(kind, stream, "");
+        }
 
         static Classification other() {
             return new Classification(Kind.OTHER, Optional.empty());
@@ -50,7 +57,7 @@ public class TaskKinds {
     public Classification classify(Task task, AuditContext context) {
         String type = context.typeName(task).map(TaskKinds::lower).orElse("");
         if (mainTypes.contains(type)) {
-            return new Classification(Kind.MAIN, Optional.empty());
+            return new Classification(Kind.MAIN, Optional.empty(), type);
         }
         if (!DEFAULT_TYPE.equals(type)) {
             return Classification.other();
@@ -62,7 +69,7 @@ public class TaskKinds {
             Task parent = context.task(current.parent());
             String parentType = context.typeName(parent).map(TaskKinds::lower).orElse("");
             if (parentTypes.contains(parentType)) {
-                return new Classification(Kind.STREAM, streamOf(streamTask));
+                return new Classification(Kind.STREAM, streamOf(streamTask), type);
             }
             if (!DEFAULT_TYPE.equals(parentType)) {
                 return Classification.other();

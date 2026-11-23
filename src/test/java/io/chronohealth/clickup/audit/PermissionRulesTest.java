@@ -13,6 +13,7 @@ import io.chronohealth.clickup.client.dto.TaskStatus;
 import io.chronohealth.clickup.client.dto.User;
 import io.chronohealth.clickup.webhook.ClickUpEvent;
 import io.chronohealth.clickup.webhook.ClickUpWebhookPayload.HistoryItem;
+import io.chronohealth.clickup.workflow.ParentStatusTestSupport;
 import io.chronohealth.clickup.workflow.TaskTypeResolver;
 import java.time.Duration;
 import java.util.List;
@@ -25,8 +26,11 @@ class PermissionRulesTest {
     private static final JsonMapper MAPPER = JsonMapper.builder().build();
     private static final long BUG = 1001L;
     private static final long STORY = 1004L;
+    private static final long FEATURE = 1005L;
     private static final long PEDRO = 100796657L;
     private static final long MARTIM = 106791322L;
+    private static final long SEBASTIAN = 308507562L;
+    private static final long NUBELSON = 106773419L;
     private static final long LUIS = 112510284L;
     private static final long VIVEK = 278564675L;
     private static final long STRANGER = 999L;
@@ -35,17 +39,18 @@ class PermissionRulesTest {
     private final AuditProperties properties = properties();
     private final People people = new People(properties);
     private final TaskKinds kinds = new TaskKinds(properties);
-    private final Permissions permissions = new Permissions(people);
+    private final Permissions permissions = new Permissions(people, ParentStatusTestSupport.planning());
     private final StatusMoveRule statusRule = new StatusMoveRule(people, kinds, permissions, properties);
     private final StreamTagChangeRule tagRule = new StreamTagChangeRule(people, kinds, permissions, properties);
     private AuditContext context;
 
     @BeforeEach
     void setUp() {
-        when(client.getCustomTaskTypes("ws")).thenReturn(List.of(
-                new CustomTaskType(BUG, "Bug"), new CustomTaskType(STORY, "Story")));
+        when(client.getCustomTaskTypes("ws")).thenReturn(List.of(new CustomTaskType(BUG, "Bug"),
+                new CustomTaskType(STORY, "Story"), new CustomTaskType(FEATURE, "Feature")));
         context = new AuditContext(client, "ws", new TaskTypeResolver(), Duration.ZERO);
         context.remember(task("bug", "Login bug", null, BUG));
+        context.remember(task("feature", "Sign up", null, FEATURE));
         context.remember(task("mobile", "Mobile | Login bug", "bug", null, "mobile"));
         context.remember(task("legacy", "Backend", "bug", null));
         context.remember(task("web", "Web | Login bug", "bug", null, "web"));
@@ -56,43 +61,61 @@ class PermissionRulesTest {
     }
 
     @Test
-    void testersAndAdminsMoveMainTasks() {
+    void testersAndAdminsMoveBugs() {
         assertThat(statusRule.check(move("bug", MARTIM), context)).isEmpty();
         assertThat(statusRule.check(move("bug", PEDRO), context)).isEmpty();
         assertThat(statusRule.check(move("nested", MARTIM), context)).isEmpty();
 
-        assertThat(statusRule.check(move("bug", LUIS), context)).singleElement().asString()
-                .contains("Luís (backend dev) moved it from 'to do' to 'in progress'")
-                .contains("Only testers and admins");
-    }
-
-    @Test
-    void devsMoveTheirStreamTasksToWaitingInfoButNeverMainTasks() {
-        assertThat(statusRule.check(move("mobile", VIVEK, "in progress", "waiting info"), context)).isEmpty();
         assertThat(statusRule.check(move("bug", LUIS, "in progress", "waiting info"), context)).singleElement()
-                .asString().contains("Only testers and admins may move Stories/Features/Bugs/Changes/Defects/Epics.");
+                .asString().contains("Luís (backend dev) moved it from 'in progress' to 'waiting info'")
+                .contains("Only testers and admins may move Bugs, Defects and Epics.");
     }
 
     @Test
-    void devsMoveOnlyTheirStream() {
-        assertThat(statusRule.check(move("mobile", VIVEK), context)).isEmpty();
-        assertThat(statusRule.check(move("subsub", VIVEK), context)).isEmpty();
-        assertThat(statusRule.check(move("legacy", LUIS), context)).isEmpty();
+    void productAndPlanningTeamsMoveAFeatureBetweenPendingAndInLobby() {
+        assertThat(statusRule.check(move("feature", MARTIM, "pending", "in lobby"), context)).isEmpty();
+        assertThat(statusRule.check(move("feature", SEBASTIAN, "in lobby", "pending"), context)).isEmpty();
+        assertThat(statusRule.check(move("feature", NUBELSON, "pending", "in lobby"), context)).isEmpty();
 
-        assertThat(statusRule.check(move("mobile", LUIS), context)).singleElement().asString()
-                .contains("Only web or mobile devs and admins").doesNotContain("Undone");
+        assertThat(statusRule.check(move("feature", LUIS, "pending", "in lobby"), context)).singleElement()
+                .asString().contains("Only the Product and Planning teams and admins");
+    }
+
+    @Test
+    void onlyThePlanningTeamMovesAFeatureToToDo() {
+        assertThat(statusRule.check(move("feature", SEBASTIAN, "in lobby", "to do"), context)).isEmpty();
+        assertThat(statusRule.check(move("feature", PEDRO, "pending", "to do"), context)).isEmpty();
+
+        assertThat(statusRule.check(move("feature", MARTIM, "in lobby", "to do"), context)).singleElement()
+                .asString().contains("Only the Planning team and admins");
+        // Skipping in lobby isn't a planner's move either.
+        assertThat(statusRule.check(move("feature", SEBASTIAN, "pending", "to do"), context)).singleElement()
+                .asString().contains("Only admins");
+    }
+
+    @Test
+    void testersApproveAFeatureAndNobodyElseMovesItOnceStarted() {
+        assertThat(statusRule.check(move("feature", MARTIM, "in testing", "approved"), context)).isEmpty();
+        assertThat(statusRule.check(move("feature", MARTIM, "approved", "complete"), context)).isEmpty();
+
+        assertThat(statusRule.check(move("feature", MARTIM, "to do", "in progress"), context)).singleElement()
+                .asString().contains("Only admins").contains("follows its subtasks");
+        assertThat(statusRule.check(move("feature", SEBASTIAN, "in testing", "approved"), context)).hasSize(1);
+    }
+
+    @Test
+    void theTechTeamMovesAnyStreamTask() {
+        assertThat(statusRule.check(move("mobile", VIVEK), context)).isEmpty();
+        assertThat(statusRule.check(move("web", VIVEK), context)).isEmpty();
+        assertThat(statusRule.check(move("mobile", LUIS), context)).isEmpty();
+        assertThat(statusRule.check(move("subsub", NUBELSON), context)).isEmpty();
+        assertThat(statusRule.check(move("legacy", SEBASTIAN, "in progress", "waiting info"), context)).isEmpty();
+
+        assertThat(statusRule.check(move("subsub", MARTIM), context)).singleElement().asString()
+                .contains("Only the Tech team and admins may move stream tasks.").doesNotContain("Undone");
         // Vivek is enforced: the report says it was undone.
         assertThat(statusRule.check(move("bug", VIVEK), context)).singleElement().asString()
                 .endsWith("Undone automatically.");
-        assertThat(statusRule.check(move("subsub", MARTIM), context)).hasSize(1);
-        assertThat(statusRule.check(move("legacy", VIVEK), context)).hasSize(1);
-    }
-
-    @Test
-    void webAndMobileDevsMoveEachOthersTasks() {
-        assertThat(statusRule.check(move("web", VIVEK), context)).isEmpty();
-        assertThat(statusRule.check(move("web", LUIS), context)).singleElement().asString()
-                .contains("Only web or mobile devs and admins");
     }
 
     @Test
@@ -124,12 +147,14 @@ class PermissionRulesTest {
     }
 
     @Test
-    void onlyAdminsChangeStreamTags() {
+    void onlyThePlanningTeamAndAdminsChangeStreamTags() {
         assertThat(tagRule.check(tag("bug", "tag", PEDRO, "web"), context)).isEmpty();
+        assertThat(tagRule.check(tag("bug", "tag", SEBASTIAN, "mobile"), context)).isEmpty();
         assertThat(tagRule.check(tag("bug", "tag", MARTIM, "urgent"), context)).isEmpty();
 
         assertThat(tagRule.check(tag("bug", "tag", MARTIM, "web"), context)).singleElement().asString()
-                .isEqualTo("Martim (tester) added the 'web' tag. Only admins may add or remove stream tags.");
+                .isEqualTo("Martim (tester) added the 'web' tag. Only the Planning team and admins may add or remove"
+                        + " stream tags.");
         assertThat(tagRule.check(tag("bug", "tag_removed", VIVEK, "Mobile"), context)).singleElement().asString()
                 .contains("removed the 'mobile' tag");
     }
@@ -158,15 +183,19 @@ class PermissionRulesTest {
     static AuditProperties properties() {
         return new AuditProperties(true, Duration.ofDays(7), Duration.ofMinutes(5), Duration.ZERO, 5, List.of(),
                 "", "", "https://docs.example/rules",
-                List.of(new AuditProperties.Person("100796657", "Pedro", "admin", null, null, null),
-                        new AuditProperties.Person("106791322", "Martim", "tester", null, null, null),
-                        new AuditProperties.Person("112510284", "Luís", "dev", "backend", null, null),
-                        new AuditProperties.Person("278564675", "Vivek", "dev", "mobile", true, null)),
-                List.of("Story", "Bug", "Change", "Epic"), List.of("backend", "web", "mobile"),
-                List.of(List.of("web", "mobile")),
+                List.of(new AuditProperties.Person("100796657", "Pedro", "admin", null, null, null, null),
+                        new AuditProperties.Person("106791322", "Martim", "tester", null, null, null,
+                                List.of("product")),
+                        new AuditProperties.Person("308507562", "Sebastian", "member", "mobile", true, null,
+                                List.of("planning", "tech")),
+                        new AuditProperties.Person("106773419", "Nubelson", "member", "web", true, null,
+                                List.of("product", "tech")),
+                        new AuditProperties.Person("112510284", "Luís", "dev", "backend", null, null, null),
+                        new AuditProperties.Person("278564675", "Vivek", "dev", "mobile", true, null, null)),
+                List.of("Story", "Bug", "Change", "Feature", "Epic"), List.of("backend", "web", "mobile"),
                 new AuditProperties.Scheduler(false),
                 new AuditProperties.Rules(
-                        new AuditProperties.StreamTaskStatus(true, List.of("Story", "Bug", "Change"), List.of("Task"),
+                        new AuditProperties.StreamTaskStatus(true, List.of("Story", "Bug", "Change", "Feature"), List.of("Task"),
                                 List.of("to do", "in progress", "review", "complete", "waiting info")),
                         new AuditProperties.Toggle(true), new AuditProperties.Toggle(true),
                         new AuditProperties.Toggle(true), new AuditProperties.Toggle(true),

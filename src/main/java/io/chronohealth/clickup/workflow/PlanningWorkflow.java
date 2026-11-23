@@ -1,0 +1,163 @@
+package io.chronohealth.clickup.workflow;
+
+import io.chronohealth.clickup.audit.People;
+import io.chronohealth.clickup.client.ClickUpClient;
+import io.chronohealth.clickup.client.ClickUpClientFactory;
+import io.chronohealth.clickup.client.dto.AssigneesUpdate;
+import io.chronohealth.clickup.client.dto.Task;
+import io.chronohealth.clickup.client.dto.TaskUpdate;
+import io.chronohealth.clickup.client.dto.User;
+import io.chronohealth.clickup.config.ClickUpProperties;
+import io.chronohealth.clickup.config.PlanningProperties;
+import io.chronohealth.clickup.webhook.ClickUpEvent;
+import io.chronohealth.clickup.webhook.ClickUpWebhookPayload.HistoryItem;
+import io.chronohealth.clickup.webhook.EventHandler;
+import java.util.List;
+import java.util.Locale;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.stereotype.Component;
+import tools.jackson.databind.JsonNode;
+
+/**
+ * The planning flow of Features and Changes ({@link PlanningProperties}):
+ * <ul>
+ *   <li>moved from pending to in lobby: the Planning team is assigned instead of whoever was (the planner who picks it
+ *       up removes the others);</li>
+ *   <li>left in lobby with nobody assigned: the Planning team is assigned again, with a comment;</li>
+ *   <li>moved to to do: its stream subtasks still in pending or in lobby go to to do too.</li>
+ * </ul>
+ * Who may make these moves is checked before this runs (see EnforcementGuard), and so is the priority (see
+ * StatusRulesGuard): an undone move never gets here.
+ */
+@Component
+public class PlanningWorkflow implements EventHandler {
+
+    static final String STATUS_EVENT = "taskStatusUpdated";
+    static final String ASSIGNEE_EVENT = "taskAssigneeUpdated";
+    private static final String STATUS_FIELD = "status";
+
+    private static final Logger log = LoggerFactory.getLogger(PlanningWorkflow.class);
+
+    private final ClickUpClientFactory clientFactory;
+    private final TaskTypeResolver taskTypes;
+    private final People people;
+    private final PlanningProperties planning;
+    private final List<String> ignoredSubtaskTypes;
+
+    public PlanningWorkflow(ClickUpClientFactory clientFactory, TaskTypeResolver taskTypes, People people,
+                            PlanningProperties planning, ClickUpProperties properties) {
+        this.clientFactory = clientFactory;
+        this.taskTypes = taskTypes;
+        this.people = people;
+        this.planning = planning;
+        this.ignoredSubtaskTypes = properties.workflows().parentStatus().ignoredChildTypesOrEmpty();
+    }
+
+    @Override
+    public Set<String> eventTypes() {
+        return planning.enabled() ? Set.of(STATUS_EVENT, ASSIGNEE_EVENT) : Set.of();
+    }
+
+    @Override
+    public void handle(ClickUpEvent event) {
+        Optional<HistoryItem> move = event.isType(STATUS_EVENT)
+                ? event.historyItems().stream().filter(i -> STATUS_FIELD.equals(i.field())).findFirst()
+                : Optional.empty();
+        if (event.isType(STATUS_EVENT) && move.isEmpty()) {
+            return;
+        }
+        ClickUpClient client = clientFactory.forWorkspace(event.workspaceId());
+        Task task = client.getTask(event.taskId(), true);
+        Optional<String> type = taskTypes.typeName(client, event.workspaceId(), task);
+        if (type.filter(planning::isPlanned).isEmpty()) {
+            return;
+        }
+        String current = task.status() == null ? null : task.status().status();
+        if (move.isPresent()) {
+            String from = statusName(move.get().before());
+            String to = statusName(move.get().after());
+            if (!Objects.equals(normalize(to), normalize(current))) {
+                log.info("Task {} moved on since the move to '{}'; nothing to do", task.id(), to);
+            } else if (isPending(from) && planning.isLobby(to)) {
+                assignPlanners(client, task, null);
+            } else if (planning.isToDo(to)) {
+                startSubtasks(client, event.workspaceId(), task);
+            }
+        } else if (planning.isLobby(current) && task.assignees() != null && task.assignees().isEmpty()) {
+            assignPlanners(client, task, lastAssigneeChangeBy(event));
+        }
+    }
+
+    /**
+     * @param whoLeftItEmpty mentioned in a comment explaining why the planners are back; null for none
+     */
+    private void assignPlanners(ClickUpClient client, Task task, Long whoLeftItEmpty) {
+        List<Long> planners = people.membersOf(People.PLANNING);
+        if (planners.isEmpty()) {
+            return;
+        }
+        List<Long> assigned = task.assignees() == null ? List.of()
+                : task.assignees().stream().map(User::id).filter(Objects::nonNull).toList();
+        List<Long> add = planners.stream().filter(p -> !assigned.contains(p)).toList();
+        List<Long> remove = assigned.stream().filter(a -> !planners.contains(a)).toList();
+        if (add.isEmpty() && remove.isEmpty()) {
+            return;
+        }
+        client.updateTask(task.id(), TaskUpdate.assignees(new AssigneesUpdate(add, remove)));
+        if (whoLeftItEmpty != null) {
+            client.addCommentMentioning(task.id(), whoLeftItEmpty, "a task in " + planning.lobbyStatus()
+                    + " always needs someone assigned, so I assigned the Planning team again. Whoever picks it up"
+                    + " removes the others.");
+        }
+        log.info("Assigned the Planning team to {} in {} ({} added, {} removed)", task.id(), planning.lobbyStatus(),
+                add.size(), remove.size());
+    }
+
+    private void startSubtasks(ClickUpClient client, String workspaceId, Task task) {
+        List<Task> waiting = task.subtasksOrEmpty().stream()
+                .filter(s -> task.id().equals(s.parent()))
+                .filter(s -> s.status() != null && planning.isBeforePlanningDone(s.status().status()))
+                .filter(s -> taskTypes.typeName(client, workspaceId, s)
+                        .map(t -> ignoredSubtaskTypes.stream().noneMatch(i -> i.equalsIgnoreCase(t.trim())))
+                        .orElse(true))
+                .toList();
+        for (Task subtask : waiting) {
+            client.updateTask(subtask.id(), TaskUpdate.status(planning.toDoStatus()));
+        }
+        if (!waiting.isEmpty()) {
+            log.info("Moved {} subtask(s) of {} to '{}' with it", waiting.size(), task.id(), planning.toDoStatus());
+        }
+    }
+
+    private boolean isPending(String status) {
+        return status != null && planning.isBeforePlanningDone(status) && !planning.isLobby(status);
+    }
+
+    private static Long lastAssigneeChangeBy(ClickUpEvent event) {
+        return event.historyItems().stream()
+                .map(HistoryItem::user)
+                .filter(Objects::nonNull)
+                .map(User::id)
+                .filter(Objects::nonNull)
+                .reduce((first, second) -> second)
+                .orElse(null);
+    }
+
+    /**
+     * ClickUp sends a status as an object ({@code {"status": "to do", ...}}) or, defensively, a string.
+     */
+    private static String statusName(JsonNode node) {
+        if (node == null || node.isNull() || node.isMissingNode()) {
+            return null;
+        }
+        return node.isString() ? node.asString() : node.path("status").asString(null);
+    }
+
+    private static String normalize(String status) {
+        return status == null ? null : status.trim().toLowerCase(Locale.ROOT);
+    }
+}

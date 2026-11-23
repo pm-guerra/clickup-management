@@ -7,6 +7,7 @@ import io.chronohealth.clickup.client.dto.CustomFieldValue;
 import io.chronohealth.clickup.client.dto.NewSubtask;
 import io.chronohealth.clickup.client.dto.Task;
 import io.chronohealth.clickup.config.ClickUpProperties;
+import io.chronohealth.clickup.config.PlanningProperties;
 import io.chronohealth.clickup.config.ClickUpProperties.FixedField;
 import io.chronohealth.clickup.config.ClickUpProperties.TagSubtaskRule;
 import io.chronohealth.clickup.webhook.ClickUpEvent;
@@ -54,13 +55,15 @@ public class TagSubtaskWorkflow implements EventHandler {
     private final CustomFieldValueMapper valueMapper;
     private final TaskTypeResolver taskTypes;
     private final ClickUpProperties.TagSubtasks config;
+    private final PlanningProperties planning;
 
     public TagSubtaskWorkflow(ClickUpClientFactory clientFactory, CustomFieldValueMapper valueMapper,
-                              TaskTypeResolver taskTypes, ClickUpProperties properties) {
+                              TaskTypeResolver taskTypes, ClickUpProperties properties, PlanningProperties planning) {
         this.clientFactory = clientFactory;
         this.valueMapper = valueMapper;
         this.taskTypes = taskTypes;
         this.config = properties.workflows().tagSubtasks();
+        this.planning = planning;
     }
 
     @Override
@@ -110,13 +113,25 @@ public class TagSubtaskWorkflow implements EventHandler {
                 title,
                 null,
                 null,
-                blankToNull(rule.status()),
+                status(parent, parentType, rule),
                 rule.copyPriority() && parent.priority() != null ? parent.priority().level() : null,
                 null,
                 rule.tagsOrEmpty().isEmpty() ? null : rule.tagsOrEmpty(),
                 customFields(parent, parentType, rule));
         Task created = client.createSubtask(parent, subtask);
         log.info("Created '{}' subtask {} under task {}", rule.tag(), created.id(), parent.id());
+    }
+
+    /**
+     * The rule's status, except for a Feature or Change still being written up or planned: its subtasks wait in lobby
+     * until a planner moves it to to do (see PlanningWorkflow).
+     */
+    private String status(Task parent, Supplier<Optional<String>> parentType, TagSubtaskRule rule) {
+        String parentStatus = parent.status() == null ? null : parent.status().status();
+        if (parentType.get().filter(planning::isPlanned).isPresent() && planning.isBeforePlanningDone(parentStatus)) {
+            return planning.lobbyStatus();
+        }
+        return blankToNull(rule.status());
     }
 
     private List<CustomFieldValue> customFields(Task parent, Supplier<Optional<String>> parentType,

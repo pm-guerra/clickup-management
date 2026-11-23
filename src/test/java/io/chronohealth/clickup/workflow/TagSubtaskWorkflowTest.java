@@ -20,6 +20,7 @@ import io.chronohealth.clickup.client.dto.NewSubtask;
 import io.chronohealth.clickup.client.dto.Priority;
 import io.chronohealth.clickup.client.dto.Tag;
 import io.chronohealth.clickup.client.dto.Task;
+import io.chronohealth.clickup.client.dto.TaskStatus;
 import io.chronohealth.clickup.config.ClickUpProperties;
 import io.chronohealth.clickup.webhook.ClickUpEvent;
 import io.chronohealth.clickup.webhook.ClickUpWebhookPayload.HistoryItem;
@@ -74,6 +75,36 @@ class TagSubtaskWorkflowTest {
         assertThat(subtask.customFields()).containsExactlyInAnyOrder(
                 new CustomFieldValue("f-maint", true),
                 new CustomFieldValue("f-pgl", true));
+    }
+
+    @Test
+    void subtasksOfAChangeStillBeingPlannedWaitInLobby() {
+        for (String status : new String[]{"in lobby", "pending"}) {
+            Task t = task("p-" + status, "Export", null, List.of());
+            Task parent = new Task(t.id(), t.name(), null, CHANGE, new TaskStatus(status, null, null), null, t.list(),
+                    List.of(), t.tags(), List.of(), List.of());
+            when(client.getTask(parent.id(), true)).thenReturn(parent);
+
+            workflow.handle(tagAdded(parent.id(), "backend"));
+
+            ArgumentCaptor<NewSubtask> captor = ArgumentCaptor.forClass(NewSubtask.class);
+            verify(client).createSubtask(eq(parent), captor.capture());
+            assertThat(captor.getValue().status()).isEqualTo("in lobby");
+        }
+    }
+
+    @Test
+    void bugSubtasksStartInToDoAsBefore() {
+        Task t = task("p-bug", "Crash", null, List.of());
+        Task parent = new Task(t.id(), t.name(), null, BUG, new TaskStatus("in lobby", null, null), null, t.list(),
+                List.of(), t.tags(), List.of(), List.of());
+        when(client.getTask(parent.id(), true)).thenReturn(parent);
+
+        workflow.handle(tagAdded(parent.id(), "backend"));
+
+        ArgumentCaptor<NewSubtask> captor = ArgumentCaptor.forClass(NewSubtask.class);
+        verify(client).createSubtask(eq(parent), captor.capture());
+        assertThat(captor.getValue().status()).isEqualTo("to do");
     }
 
     @Test
@@ -225,7 +256,8 @@ class TagSubtaskWorkflowTest {
                                 "waiting info", List.of()),
                         new ClickUpProperties.PrioritySync(false, List.of(), List.of(), List.of()),
                         new ClickUpProperties.PointsReminder(false, List.of(), List.of())));
-        return new TagSubtaskWorkflow(factory, new CustomFieldValueMapper(), new TaskTypeResolver(), properties);
+        return new TagSubtaskWorkflow(factory, new CustomFieldValueMapper(), new TaskTypeResolver(), properties,
+                ParentStatusTestSupport.planning());
     }
 
     private static ClickUpEvent tagAdded(String taskId, String tag) {

@@ -4,6 +4,7 @@ import io.chronohealth.clickup.client.ClickUpClient;
 import io.chronohealth.clickup.client.ClickUpClientFactory;
 import io.chronohealth.clickup.client.dto.Task;
 import io.chronohealth.clickup.client.dto.TaskUpdate;
+import io.chronohealth.clickup.config.PlanningProperties;
 import io.chronohealth.clickup.webhook.ClickUpEvent;
 import io.chronohealth.clickup.webhook.ClickUpWebhookPayload.HistoryItem;
 import io.chronohealth.clickup.webhook.EventGuard;
@@ -23,6 +24,8 @@ import org.springframework.stereotype.Component;
  * Pedro and the app itself):
  * <ul>
  *   <li>a task moved to a status it may not be in ({@link StatusPlacement}): moved back to where it was;</li>
+ *   <li>a Feature, Change or Bug moved to to do without a priority ({@link PlanningProperties}): moved back to where
+ *       it was;</li>
  *   <li>a parent moved out of step with its subtasks, ahead or back ({@link ParentStatusPolicy}): moved to where
  *       its subtasks put it. A rejectable parent (a Defect) may be moved back: that's testing rejecting it.</li>
  * </ul>
@@ -44,15 +47,18 @@ public class StatusRulesGuard implements EventGuard {
     private final StatusPlacement placement;
     private final ParentStatuses parentStatuses;
     private final AuditProperties properties;
+    private final PlanningProperties planning;
 
     public StatusRulesGuard(ClickUpClientFactory clientFactory, TaskTypeResolver taskTypes, People people,
-                            StatusPlacement placement, ParentStatuses parentStatuses, AuditProperties properties) {
+                            StatusPlacement placement, ParentStatuses parentStatuses, AuditProperties properties,
+                            PlanningProperties planning) {
         this.clientFactory = clientFactory;
         this.taskTypes = taskTypes;
         this.people = people;
         this.placement = placement;
         this.parentStatuses = parentStatuses;
         this.properties = properties;
+        this.planning = planning;
     }
 
     @Override
@@ -91,6 +97,15 @@ public class StatusRulesGuard implements EventGuard {
             return undo(context, task, move, previous,
                     "you moved this to '" + attempted + "', but " + notAllowed.get() + " I moved it back to '"
                             + previous + "'.");
+        }
+
+        Optional<String> type = context.typeName(task);
+        boolean noPriority = task.priority() == null || task.priority().level() == null;
+        if (planning.isToDo(attempted) && noPriority && type.filter(planning::needsPriority).isPresent()) {
+            return undo(context, task, move, previous,
+                    "you moved this " + type.get() + " to '" + attempted + "', but it has no priority, and every "
+                            + type.get() + " needs one before work starts. Set the priority and move it again. I moved"
+                            + " it back to '" + previous + "'.");
         }
 
         if (!parentStatuses.manages(task, context)) {

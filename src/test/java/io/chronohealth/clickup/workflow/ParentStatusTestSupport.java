@@ -28,13 +28,17 @@ public final class ParentStatusTestSupport {
                         new ClickUpProperties.PointsReminder(false, List.of(), List.of())));
     }
 
+    public static io.chronohealth.clickup.config.PlanningProperties planning() {
+        return new io.chronohealth.clickup.config.PlanningProperties(true, List.of("Feature", "Change"), "pending",
+                "in lobby", "to do", List.of("Feature", "Change", "Bug"));
+    }
+
     public static AuditProperties auditProperties() {
         return new AuditProperties(true, Duration.ofDays(7), Duration.ofMinutes(5), Duration.ZERO, 5, List.of(),
                 "", "", "https://docs.example/rules",
-                List.of(new AuditProperties.Person("100796657", "Pedro", "admin", null, null, true),
-                        new AuditProperties.Person("106791322", "Martim", "tester", null, null, null)),
+                List.of(new AuditProperties.Person("100796657", "Pedro", "admin", null, null, true, null),
+                        new AuditProperties.Person("106791322", "Martim", "tester", null, null, null, null)),
                 List.of("Story", "Bug", "Change", "Feature", "Epic"), List.of("backend", "web", "mobile"),
-                List.of(),
                 new AuditProperties.Scheduler(false),
                 new AuditProperties.Rules(
                         new AuditProperties.StreamTaskStatus(true, List.of("Story", "Bug", "Change", "Feature"),

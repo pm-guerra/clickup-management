@@ -22,7 +22,6 @@ import org.springframework.validation.annotation.Validated;
  * @param people          who's who, for the permission rules (anyone not listed has no permissions)
  * @param mainTaskTypes   task types testers may move (Story, Bug, Change, Epic)
  * @param streams         stream names, also the stream tags (backend, web, mobile)
- * @param sharedStreams   groups of streams whose devs may move each other's stream tasks (web and mobile)
  * @param scheduler       in-process hourly trigger for local runs; on Cloud Run, Cloud Scheduler calls the endpoint
  * @param rules           per-rule settings
  */
@@ -41,7 +40,6 @@ public record AuditProperties(
         List<@Valid Person> people,
         List<String> mainTaskTypes,
         List<String> streams,
-        List<List<String>> sharedStreams,
         @Valid @NotNull Scheduler scheduler,
         @Valid @NotNull Rules rules
 ) {
@@ -66,20 +64,22 @@ public record AuditProperties(
         return streams == null ? List.of() : streams;
     }
 
-    public List<List<String>> sharedStreamsOrEmpty() {
-        return sharedStreams == null ? List.of() : sharedStreams;
-    }
-
     /**
      * @param id     ClickUp user id
      * @param name   display name used in reports
-     * @param role   admin, tester or dev
-     * @param stream  for devs: backend, web or mobile
+     * @param role   admin, or member (what they may do comes from their teams); tester and dev are kept as
+     *               shorthands for the testers and tech teams
+     * @param stream  the stream they usually work on, for reports (backend, web, mobile)
      * @param enforce their forbidden changes are undone automatically (otherwise only reported)
      * @param unrestricted the status rules (see StatusRulesGuard) don't apply to them
+     * @param teams  product, planning, tech, testers
      */
     public record Person(@NotBlank String id, @NotBlank String name, @NotBlank String role, String stream,
-                         Boolean enforce, Boolean unrestricted) {
+                         Boolean enforce, Boolean unrestricted, List<String> teams) {
+
+        public List<String> teamsOrEmpty() {
+            return teams == null ? List.of() : teams;
+        }
 
         public boolean isEnforced() {
             return Boolean.TRUE.equals(enforce);

@@ -15,6 +15,7 @@ import io.chronohealth.clickup.client.ClickUpClient;
 import io.chronohealth.clickup.client.ClickUpClientFactory;
 import io.chronohealth.clickup.client.dto.CustomTaskType;
 import io.chronohealth.clickup.client.dto.IdRef;
+import io.chronohealth.clickup.client.dto.Priority;
 import io.chronohealth.clickup.client.dto.Tag;
 import io.chronohealth.clickup.client.dto.Task;
 import io.chronohealth.clickup.client.dto.TaskStatus;
@@ -50,7 +51,8 @@ class StatusRulesGuardTest {
         TaskKinds kinds = new TaskKinds(properties);
         ParentStatuses parentStatuses = new ParentStatuses(kinds, ParentStatusTestSupport.clickUpProperties());
         guard = new StatusRulesGuard(factory, new TaskTypeResolver(), new People(properties),
-                new StatusPlacement(kinds, parentStatuses), parentStatuses, properties);
+                new StatusPlacement(kinds, parentStatuses), parentStatuses, properties,
+                ParentStatusTestSupport.planning());
         when(factory.forWorkspace("ws")).thenReturn(client);
         when(client.getCustomTaskTypes("ws")).thenReturn(List.of(
                 new CustomTaskType(BUG, "Bug"), new CustomTaskType(EPIC, "Epic"),
@@ -98,6 +100,26 @@ class StatusRulesGuardTest {
         assertThat(guard.blocks(move("bug", MARTIM, "in testing", "approved"))).isFalse();
 
         verify(client, never()).updateTask(anyString(), any());
+    }
+
+    @Test
+    void aBugCantReachToDoWithoutAPriority() {
+        bug("to do");
+
+        assertThat(guard.blocks(move("bug", MARTIM, "in lobby", "to do"))).isTrue();
+
+        verify(client).updateTask("bug", TaskUpdate.status("in lobby"));
+        verify(client).addCommentMentioning(eq("bug"), eq(MARTIM), contains("it has no priority"));
+    }
+
+    @Test
+    void aBugWithAPriorityReachesToDo() {
+        Task bug = new Task("bug", "name", null, BUG, new TaskStatus("to do", null, null),
+                new Priority("2", "high"), new IdRef("list"), List.of(), List.of(), List.of(), List.of());
+        when(client.getTask("bug")).thenReturn(bug);
+        when(client.getTask("bug", true)).thenReturn(bug);
+
+        assertThat(guard.blocks(move("bug", MARTIM, "in lobby", "to do"))).isFalse();
     }
 
     @Test

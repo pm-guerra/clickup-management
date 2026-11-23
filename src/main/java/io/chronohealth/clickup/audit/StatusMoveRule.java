@@ -11,12 +11,7 @@ import org.springframework.stereotype.Component;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Who may change a task's status:
- * <ul>
- *   <li>main tasks (Story/Bug/Change/Epic): testers and admins;</li>
- *   <li>stream tasks and the sub-subtasks inside them: devs of that stream and admins;</li>
- *   <li>other tasks: anyone.</li>
- * </ul>
+ * Who may change a task's status: see {@link Permissions}.
  * A task's initial status when it's created (no previous status) isn't a move and isn't checked.
  */
 @Component
@@ -68,9 +63,11 @@ public class StatusMoveRule implements AuditEventRule {
         List<String> findings = new ArrayList<>();
         for (HistoryItem move : moves) {
             Long userId = move.user() == null ? null : move.user().id();
-            if (!permissions.canMoveStatus(userId, kind)) {
-                findings.add(people.describe(userId) + " moved it from '" + status(move.before()) + "' to '"
-                        + status(move.after()) + "'. " + permissions.whoMayMove(kind)
+            String from = status(move.before());
+            String to = status(move.after());
+            if (!permissions.canMoveStatus(userId, kind, from, to)) {
+                findings.add(people.describe(userId) + " moved it from '" + from + "' to '" + to + "'. "
+                        + permissions.whoMayMove(kind, from, to)
                         + (people.isEnforced(userId) ? " Undone automatically." : ""));
             }
         }

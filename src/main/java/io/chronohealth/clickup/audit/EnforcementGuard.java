@@ -102,7 +102,7 @@ public class EnforcementGuard implements EventGuard {
         Classification kind = kinds.classify(task, context);
         String previous = StatusMoveRule.status(move.before());
         String attempted = StatusMoveRule.status(move.after());
-        if (permissions.canMoveStatus(userId, kind)) {
+        if (permissions.canMoveStatus(userId, kind, previous, attempted)) {
             return false;
         }
         String current = task.status() == null || task.status().status() == null ? "" : task.status().status();
@@ -112,7 +112,8 @@ public class EnforcementGuard implements EventGuard {
         }
         client.updateTask(task.id(), TaskUpdate.status(previous));
         comment(client, task.id(), userId, "you moved this from '" + previous + "' to '" + attempted + "', but "
-                + lowerFirst(permissions.whoMayMove(kind)) + " I moved it back to '" + previous + "'.");
+                + lowerFirst(permissions.whoMayMove(kind, previous, attempted)) + " I moved it back to '" + previous
+                + "'.");
         log.info("Undid status move on task {} by user {} ({} -> {})", task.id(), userId, previous, attempted);
         return true;
     }

@@ -82,6 +82,16 @@ app:
       max-age: 1d
       timeout: 30s
   # Hourly audit of tasks changed since the previous run (see AuditJob). Sends a ClickUp DM only for new issues.
+  # Features and Changes are written up by the Product team in pending, planned by the Planning team in in lobby
+  # (who add the stream tags; their subtasks wait in in lobby), then a planner moves them to to do and the subtasks
+  # follow (see PlanningWorkflow, Permissions). Moving there without a priority is undone, for Bugs too.
+  planning:
+    enabled: true
+    task-types: [Feature, Change]
+    pending-status: pending
+    lobby-status: in lobby
+    to-do-status: to do
+    priority-required-types: [Feature, Change, Bug]
   audit:
     enabled: true
     initial-lookback: 7d
@@ -103,20 +113,17 @@ app:
       # don't apply to them; everyone else's moves that break them are undone.
       # The app itself acts as Octo bot (it authorized the OAuth app); its automatic changes are always allowed
       - { id: "106723346", name: Octo bot, role: admin, unrestricted: true }
-      - { id: "100796657", name: Pedro, role: admin, unrestricted: true }
-      - { id: "106501885", name: José, role: admin }
-      - { id: "106791322", name: Martim, role: tester, enforce: true }
-      - { id: "106744781", name: Katya, role: tester, enforce: true }
-      - { id: "266659509", name: Catarina, role: tester, enforce: true }
-      - { id: "112510284", name: Luís, role: dev, stream: backend, enforce: true }
-      - { id: "278564675", name: Vivek, role: dev, stream: mobile, enforce: true }
-      - { id: "308507562", name: Sebastian, role: dev, stream: mobile, enforce: true }
-      - { id: "106773419", name: Nubelson, role: dev, stream: web, enforce: true }
+      - { id: "100796657", name: Pedro, role: admin, unrestricted: true, teams: [planning, tech] }
+      - { id: "106501885", name: José, role: admin, teams: [planning, tech] }
+      - { id: "308507562", name: Sebastian, role: member, stream: mobile, enforce: true, teams: [planning, tech] }
+      - { id: "106791322", name: Martim, role: member, enforce: true, teams: [product, testers] }
+      - { id: "106744781", name: Katya, role: member, enforce: true, teams: [product, testers] }
+      - { id: "106773419", name: Nubelson, role: member, stream: web, enforce: true, teams: [product, tech] }
+      - { id: "112510284", name: Luís, role: member, stream: backend, enforce: true, teams: [tech] }
+      - { id: "278564675", name: Vivek, role: member, stream: mobile, enforce: true, teams: [tech] }
     # Testers move these; devs move the stream tasks under them
     main-task-types: [Story, Bug, Change, Feature, Defect, Epic]
     streams: [backend, web, mobile]
-    # Devs of these streams may move each other's stream tasks
-    shared-streams: [[web, mobile]]
     scheduler:
       # Local in-process trigger; on Cloud Run, Cloud Scheduler calls POST /admin/audit/run hourly.
       enabled: ${AUDIT_SCHEDULER_ENABLED:false}
@@ -127,12 +134,12 @@ app:
         # Only Task-type subtasks are stream tasks; nested Bugs/Changes/Stories are not
         stream-types: [Task]
         # ready_for_dev is further limited to mobile (status-placement); on hold is left to people
-        allowed-statuses: [pending, to do, in progress, blocked, review, ready_for_dev, in development, complete,
-                           waiting info, on hold]
-      # Main tasks: testers/admins move them; stream tasks: their stream's devs/admins (checked on each change)
+        allowed-statuses: [pending, in lobby, to do, in progress, blocked, review, ready_for_dev, in development,
+                           complete, waiting info, on hold]
+      # Who moves what, by team (see Permissions; checked on each change)
       status-move:
         enabled: true
-      # Only admins add/remove the backend/web/mobile tags
+      # Only the Planning team and admins add/remove the backend/web/mobile tags
       stream-tag-change:
         enabled: true
       # Parents out of step with their subtasks are moved where their subtasks put them, and reported
