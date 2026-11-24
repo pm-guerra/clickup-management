@@ -30,7 +30,7 @@ public final class ParentStatusTestSupport {
 
     public static io.chronohealth.clickup.config.PlanningProperties planning() {
         return new io.chronohealth.clickup.config.PlanningProperties(true, List.of("Feature", "Change"), "pending",
-                "in lobby", "to do", List.of("Feature", "Change", "Bug"));
+                "in lobby", "to do", List.of("Feature", "Change", "Bug"), "Planner");
     }
 
     public static AuditProperties auditProperties() {

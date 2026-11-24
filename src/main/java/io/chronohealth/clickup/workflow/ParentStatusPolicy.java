@@ -14,6 +14,7 @@ import java.util.Set;
  * <ol>
  *   <li>all pending -> pending; all pending or to do -> to do;</li>
  *   <li>all blocked -> blocked; all waiting info -> waiting info;</li>
+ *   <li>waiting info and the rest not started (to do, in lobby, pending) -> to do: questions don't start the work;</li>
  *   <li>any in progress, blocked or waiting info, or a mix of started and not started -> in progress;</li>
  *   <li>any in review -> review;</li>
  *   <li>any in ready_for_dev -> ready_for_dev if every subtask is mobile, else review;</li>
@@ -23,7 +24,7 @@ import java.util.Set;
  * A subtask in in testing or approved (a nested Bug, say) counts as complete.
  * <p>
  * The app never pulls a parent back into the testers' stages before development (pending, in lobby, waiting info,
- * to do), and leaves a parent that testers moved on to approved or complete once all its subtasks are complete. A
+ * to do), except from waiting info to to do once its subtasks' questions are answered, and leaves a parent that testers moved on to approved or complete once all its subtasks are complete. A
  * parent in a status not known here (e.g. on hold) is left alone too.
  */
 public final class ParentStatusPolicy {
@@ -112,6 +113,9 @@ public final class ParentStatusPolicy {
         if (stages.stream().allMatch(s -> s == Stage.WAITING)) {
             return Optional.of(WAITING_INFO);
         }
+        if (stages.stream().allMatch(s -> s == Stage.PENDING || s == Stage.NOT_STARTED || s == Stage.WAITING)) {
+            return Optional.of(TO_DO);
+        }
         if (stages.stream().anyMatch(s -> s.compareTo(Stage.ACTIVE) <= 0)) {
             return Optional.of(IN_PROGRESS);
         }
@@ -136,7 +140,9 @@ public final class ParentStatusPolicy {
         if (status.equals(derived) || !RANKS.containsKey(status)) {
             return Optional.empty();
         }
-        if (BEFORE_DEVELOPMENT.contains(status) && (PENDING.equals(derived) || TO_DO.equals(derived))) {
+        boolean questionsAnswered = WAITING_INFO.equals(status) && TO_DO.equals(derived);
+        if (BEFORE_DEVELOPMENT.contains(status) && (PENDING.equals(derived) || TO_DO.equals(derived))
+                && !questionsAnswered) {
             return Optional.empty();
         }
         if (IN_TESTING.equals(derived) && AFTER_TESTING.contains(status)) {

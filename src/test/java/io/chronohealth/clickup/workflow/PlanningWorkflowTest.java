@@ -15,6 +15,7 @@ import io.chronohealth.clickup.audit.People;
 import io.chronohealth.clickup.client.ClickUpClient;
 import io.chronohealth.clickup.client.ClickUpClientFactory;
 import io.chronohealth.clickup.client.dto.AssigneesUpdate;
+import io.chronohealth.clickup.client.dto.CustomField;
 import io.chronohealth.clickup.client.dto.CustomTaskType;
 import io.chronohealth.clickup.client.dto.IdRef;
 import io.chronohealth.clickup.client.dto.Task;
@@ -26,6 +27,7 @@ import io.chronohealth.clickup.webhook.ClickUpWebhookPayload.HistoryItem;
 import java.time.Duration;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import tools.jackson.databind.json.JsonMapper;
@@ -99,6 +101,25 @@ class PlanningWorkflowTest {
     }
 
     @Test
+    void thePlannerWhoStartsTheWorkIsRecorded() {
+        stub(withPlanner(task("f", FEATURE, "to do", List.of()), "[{\"id\":" + PEDRO + "}]"));
+
+        workflow.handle(move(SEBASTIAN, "in lobby", "to do"));
+
+        verify(client).setCustomField("f", "f-planner", Map.of("add", List.of(SEBASTIAN), "rem", List.of(PEDRO)));
+    }
+
+    @Test
+    void movesByOthersOrAlreadyRecordedPlannersChangeNothing() {
+        stub(withPlanner(task("f", FEATURE, "to do", List.of()), "[{\"id\":" + SEBASTIAN + "}]"));
+        workflow.handle(move(SEBASTIAN, "in lobby", "to do"));
+        stub(withPlanner(task("f", FEATURE, "to do", List.of()), null));
+        workflow.handle(move(MARTIM, "in lobby", "to do"));
+
+        verify(client, never()).setCustomField(anyString(), anyString(), any());
+    }
+
+    @Test
     void bugsAndTasksThatMovedOnAreLeftAlone() {
         stub(task("f", BUG, "in lobby", List.of(MARTIM)));
         workflow.handle(move(MARTIM, "pending", "in lobby"));
@@ -115,6 +136,13 @@ class PlanningWorkflowTest {
     private static Task task(String id, long type, String status, List<Long> assignees, Task... subtasks) {
         return new Task(id, id, null, type, new TaskStatus(status, null, null), null, new IdRef("list"),
                 assignees.stream().map(User::new).toList(), List.of(), List.of(), Arrays.asList(subtasks));
+    }
+
+    private static Task withPlanner(Task t, String value) {
+        CustomField planner = new CustomField("f-planner", "Planner", "users", null,
+                value == null ? null : MAPPER.readTree(value));
+        return new Task(t.id(), t.name(), t.parent(), t.customItemId(), t.status(), t.priority(), t.list(),
+                t.assignees(), t.tags(), List.of(planner), t.subtasks());
     }
 
     private static Task sub(String id, Long type, String status) {

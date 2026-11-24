@@ -92,6 +92,8 @@ app:
     lobby-status: in lobby
     to-do-status: to do
     priority-required-types: [Feature, Change, Bug]
+    # Set to the planner who moved it to to do, so Octo bot knows whom to ask its questions
+    planner-field: Planner
   audit:
     enabled: true
     initial-lookback: 7d
@@ -199,11 +201,11 @@ clickup:
       reopen-statuses: [complete]
       reopen-to: waiting info
       ignored-subtask-types: [Defect]
-    # Whoever moves a Feature, Bug or Change to "to do" without sprint points is asked in a comment to add them
-    # (see SprintPointsReminderWorkflow).
+    # Whoever moves a Bug to "to do" without sprint points is asked in a comment to add them
+    # (see SprintPointsReminderWorkflow). Features and Changes are estimated by Octo bot in to do.
     points-reminder:
       enabled: true
-      task-types: [Feature, Bug, Change]
+      task-types: [Bug]
       statuses: [to do]
     # When a task is created, set field defaults by task type (see CreateDefaultsWorkflow).
     create-defaults:

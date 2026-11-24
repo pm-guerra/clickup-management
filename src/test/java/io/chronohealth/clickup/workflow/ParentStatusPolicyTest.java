@@ -64,7 +64,17 @@ class ParentStatusPolicyTest {
     void waitingForInfoCountsAsPaused() {
         assertThat(derive("waiting info", "complete")).isEqualTo("in progress");
         assertThat(derive("Waiting Info", "review")).isEqualTo("in progress");
+        assertThat(derive("waiting info", "in progress")).isEqualTo("in progress");
         assertThat(derive("waiting info", "waiting info")).isEqualTo("waiting info");
+    }
+
+    @Test
+    void questionsOnSomeSubtasksDontStartTheWork() {
+        assertThat(derive("waiting info", "to do", "to do")).isEqualTo("to do");
+        assertThat(derive("waiting info", "in lobby")).isEqualTo("to do");
+        // Once answered, the parent comes back from waiting info to to do.
+        assertThat(ParentStatusPolicy.move("waiting info", "to do")).contains("to do");
+        assertThat(ParentStatusPolicy.move("to do", "waiting info")).contains("waiting info");
     }
 
     @Test

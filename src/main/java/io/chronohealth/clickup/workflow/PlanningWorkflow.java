@@ -4,6 +4,7 @@ import io.chronohealth.clickup.audit.People;
 import io.chronohealth.clickup.client.ClickUpClient;
 import io.chronohealth.clickup.client.ClickUpClientFactory;
 import io.chronohealth.clickup.client.dto.AssigneesUpdate;
+import io.chronohealth.clickup.client.dto.CustomField;
 import io.chronohealth.clickup.client.dto.Task;
 import io.chronohealth.clickup.client.dto.TaskUpdate;
 import io.chronohealth.clickup.client.dto.User;
@@ -28,7 +29,8 @@ import tools.jackson.databind.JsonNode;
  *   <li>moved from pending to in lobby: the Planning team is assigned instead of whoever was (the planner who picks it
  *       up removes the others);</li>
  *   <li>left in lobby with nobody assigned: the Planning team is assigned again, with a comment;</li>
- *   <li>moved to to do: its stream subtasks still in pending or in lobby go to to do too.</li>
+ *   <li>moved to to do: its stream subtasks still in pending or in lobby go to to do too, and the planner who moved it
+ *       is recorded in the Planner field (Octo bot asks them its questions).</li>
  * </ul>
  * Who may make these moves is checked before this runs (see EnforcementGuard), and so is the priority (see
  * StatusRulesGuard): an undone move never gets here.
@@ -86,6 +88,7 @@ public class PlanningWorkflow implements EventHandler {
                 assignPlanners(client, task, null);
             } else if (planning.isToDo(to)) {
                 startSubtasks(client, event.workspaceId(), task);
+                recordPlanner(client, task, move.get().user());
             }
         } else if (planning.isLobby(current) && task.assignees() != null && task.assignees().isEmpty()) {
             assignPlanners(client, task, lastAssigneeChangeBy(event));
@@ -131,6 +134,32 @@ public class PlanningWorkflow implements EventHandler {
         if (!waiting.isEmpty()) {
             log.info("Moved {} subtask(s) of {} to '{}' with it", waiting.size(), task.id(), planning.toDoStatus());
         }
+    }
+
+    /**
+     * Only a planner moving it counts (admins Pedro and José are planners too); Octo bot's own moves don't.
+     */
+    private void recordPlanner(ClickUpClient client, Task task, User mover) {
+        if (!planning.hasPlannerField() || mover == null || mover.id() == null
+                || !people.inTeam(mover.id(), People.PLANNING)) {
+            return;
+        }
+        Optional<CustomField> field = task.customFieldNamed(planning.plannerField());
+        if (field.isEmpty()) {
+            log.warn("Task {} has no '{}' field; the planner isn't recorded", task.id(), planning.plannerField());
+            return;
+        }
+        List<Long> current = new java.util.ArrayList<>();
+        if (field.get().hasValue() && field.get().value().isArray()) {
+            field.get().value().forEach(u -> current.add(u.path("id").asLong()));
+        }
+        if (current.equals(List.of(mover.id()))) {
+            return;
+        }
+        List<Long> remove = current.stream().filter(id -> !id.equals(mover.id())).toList();
+        client.setCustomField(task.id(), field.get().id(),
+                java.util.Map.of("add", List.of(mover.id()), "rem", remove));
+        log.info("Recorded user {} as the planner of {}", mover.id(), task.id());
     }
 
     private boolean isPending(String status) {

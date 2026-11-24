@@ -18,6 +18,8 @@ import org.springframework.validation.annotation.Validated;
  * @param toDoStatus           where implementation starts ("to do")
  * @param priorityRequiredTypes tasks of these types can't reach {@code toDoStatus} without a priority (Feature,
  *                             Change, Bug)
+ * @param plannerField         People custom field set to the planner who moved the task to {@code toDoStatus}, so
+ *                             Octo bot knows whom to ask ("Planner"); empty for none
  */
 @Validated
 @ConfigurationProperties("app.planning")
@@ -27,8 +29,13 @@ public record PlanningProperties(
         String pendingStatus,
         String lobbyStatus,
         String toDoStatus,
-        List<String> priorityRequiredTypes
+        List<String> priorityRequiredTypes,
+        String plannerField
 ) {
+
+    public boolean hasPlannerField() {
+        return plannerField != null && !plannerField.isBlank();
+    }
 
     public boolean isPlanned(String type) {
         return enabled && contains(taskTypes, type);
