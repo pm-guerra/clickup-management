@@ -26,9 +26,10 @@ import tools.jackson.databind.JsonNode;
 /**
  * The planning flow of Features and Changes ({@link PlanningProperties}):
  * <ul>
- *   <li>moved from pending to in lobby: the Planning team is assigned instead of whoever was (the planner who picks it
- *       up removes the others);</li>
- *   <li>left in lobby with nobody assigned: the Planning team is assigned again, with a comment;</li>
+ *   <li>moved from pending to in lobby: everyone is unassigned (whoever picks it up, from Product or Planning,
+ *       assigns themselves);</li>
+ *   <li>in lobby, only Product and Planning team members may be assigned: anyone else assigned by someone who isn't
+ *       an admin is unassigned again, with a comment;</li>
  *   <li>moved to to do: its stream subtasks still in pending or in lobby go to to do too, and the planner who moved it
  *       is recorded in the Planner field (Octo bot asks them its questions).</li>
  * </ul>
@@ -85,39 +86,49 @@ public class PlanningWorkflow implements EventHandler {
             if (!Objects.equals(normalize(to), normalize(current))) {
                 log.info("Task {} moved on since the move to '{}'; nothing to do", task.id(), to);
             } else if (isPending(from) && planning.isLobby(to)) {
-                assignPlanners(client, task, null);
+                unassignEveryone(client, task);
             } else if (planning.isToDo(to)) {
                 startSubtasks(client, event.workspaceId(), task);
                 recordPlanner(client, task, move.get().user());
             }
-        } else if (planning.isLobby(current) && task.assignees() != null && task.assignees().isEmpty()) {
-            assignPlanners(client, task, lastAssigneeChangeBy(event));
+        } else if (planning.isLobby(current)) {
+            removeOutsideAssignees(client, task, lastAssigneeChangeBy(event));
         }
     }
 
+    private void unassignEveryone(ClickUpClient client, Task task) {
+        List<Long> assigned = assignees(task);
+        if (assigned.isEmpty()) {
+            return;
+        }
+        client.updateTask(task.id(), TaskUpdate.assignees(new AssigneesUpdate(List.of(), assigned)));
+        log.info("Unassigned {} people from {} on its way to {}", assigned.size(), task.id(), planning.lobbyStatus());
+    }
+
     /**
-     * @param whoLeftItEmpty mentioned in a comment explaining why the planners are back; null for none
+     * @param assignedBy who changed the assignees; their changes are left alone if they're an admin
      */
-    private void assignPlanners(ClickUpClient client, Task task, Long whoLeftItEmpty) {
-        List<Long> planners = people.membersOf(People.PLANNING);
-        if (planners.isEmpty()) {
+    private void removeOutsideAssignees(ClickUpClient client, Task task, Long assignedBy) {
+        if (assignedBy == null || people.isAdmin(assignedBy)) {
             return;
         }
-        List<Long> assigned = task.assignees() == null ? List.of()
+        List<Long> outside = assignees(task).stream()
+                .filter(a -> !people.inTeam(a, People.PRODUCT) && !people.inTeam(a, People.PLANNING))
+                .toList();
+        if (outside.isEmpty()) {
+            return;
+        }
+        client.updateTask(task.id(), TaskUpdate.assignees(new AssigneesUpdate(List.of(), outside)));
+        client.addCommentMentioning(task.id(), assignedBy, "in " + planning.lobbyStatus()
+                + " only the Product and Planning teams work on a task, so I unassigned whoever else was assigned."
+                + " Assign the stream tasks instead once they exist.");
+        log.info("Unassigned {} people outside Product and Planning from {} in {}", outside.size(), task.id(),
+                planning.lobbyStatus());
+    }
+
+    private static List<Long> assignees(Task task) {
+        return task.assignees() == null ? List.of()
                 : task.assignees().stream().map(User::id).filter(Objects::nonNull).toList();
-        List<Long> add = planners.stream().filter(p -> !assigned.contains(p)).toList();
-        List<Long> remove = assigned.stream().filter(a -> !planners.contains(a)).toList();
-        if (add.isEmpty() && remove.isEmpty()) {
-            return;
-        }
-        client.updateTask(task.id(), TaskUpdate.assignees(new AssigneesUpdate(add, remove)));
-        if (whoLeftItEmpty != null) {
-            client.addCommentMentioning(task.id(), whoLeftItEmpty, "a task in " + planning.lobbyStatus()
-                    + " always needs someone assigned, so I assigned the Planning team again. Whoever picks it up"
-                    + " removes the others.");
-        }
-        log.info("Assigned the Planning team to {} in {} ({} added, {} removed)", task.id(), planning.lobbyStatus(),
-                add.size(), remove.size());
     }
 
     private void startSubtasks(ClickUpClient client, String workspaceId, Task task) {

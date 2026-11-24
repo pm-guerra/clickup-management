@@ -87,6 +87,9 @@ public class EnforcementGuard implements EventGuard {
             } else if (StreamTagChangeRule.ADDED.equals(item.field()) || StreamTagChangeRule.REMOVED.equals(item.field())) {
                 undone |= undoTagChange(client, event, item);
             } else if (CREATION_FIELD.equals(item.field())) {
+                if (deleteForbiddenSubtask(client, event, item)) {
+                    return true;
+                }
                 removeTagsSetOnCreation(client, event, item);
             } else if (lockedChanges.contains(item)) {
                 undone |= undoPriorityChange(client, event, item);
@@ -148,6 +151,31 @@ public class EnforcementGuard implements EventGuard {
                 + (added ? "removed it again" : "put it back") + ".");
         log.info("Undid stream tag change on task {} by user {} ({} {})", event.taskId(), userId,
                 added ? "added" : "removed", tags);
+        return true;
+    }
+
+    /**
+     * A subtask the creator may not create is deleted (it stays in ClickUp's trash), with a comment on its parent.
+     *
+     * @return true if it was deleted
+     */
+    private boolean deleteForbiddenSubtask(ClickUpClient client, ClickUpEvent event, HistoryItem creation) {
+        Long userId = creation.user().id();
+        AuditContext context = new AuditContext(client, event.workspaceId(), taskTypes, Duration.ZERO);
+        Task task = context.task(event.taskId());
+        if (task == null || task.parent() == null) {
+            return false;
+        }
+        Task parent = context.task(task.parent());
+        String type = context.typeName(task).map(t -> t.trim().toLowerCase(java.util.Locale.ROOT)).orElse("");
+        if (permissions.canCreateSubtask(userId, kinds.classify(parent, context), type)) {
+            return false;
+        }
+        client.deleteTask(task.id());
+        comment(client, parent.id(), userId, "you created a subtask under this task, but "
+                + lowerFirst(permissions.whoMayCreateSubtask()) + " I deleted it (it's in ClickUp's trash if it's"
+                + " needed).");
+        log.info("Deleted subtask {} of {} created by user {}", task.id(), parent.id(), userId);
         return true;
     }
 

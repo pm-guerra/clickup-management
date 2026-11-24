@@ -44,6 +44,10 @@ class EnforcementGuardTest {
      * Mobile dev, enforced.
      */
     private static final long VIVEK = 278564675L;
+    /**
+     * Planner, enforced.
+     */
+    private static final long SEBASTIAN = 308507562L;
 
     private final ClickUpClientFactory factory = mock(ClickUpClientFactory.class);
     private final ClickUpClient client = mock(ClickUpClient.class);
@@ -122,6 +126,31 @@ class EnforcementGuardTest {
         verify(client, never()).removeTag("feature", "2.0.0");
         verify(client).addCommentMentioning(eq("feature"), eq(VIVEK),
                 contains("you created this with the backend, mobile tag"));
+    }
+
+    @Test
+    void deletesASubtaskCreatedUnderABugByTheTechTeam() {
+        when(client.getTask("bug")).thenReturn(task("bug", "Login", null, BUG, "to do"));
+        when(client.getTask("new")).thenReturn(task("new", "Backend work", "bug", null, "to do"));
+
+        assertThat(guard.blocks(created("new", VIVEK))).isTrue();
+        verify(client).deleteTask("new");
+        verify(client).addCommentMentioning(eq("bug"), eq(VIVEK), contains("only the Planning team creates subtasks"));
+    }
+
+    @Test
+    void theTechTeamCreatesSubtasksInsideAStreamTaskAndPlannersAnywhere() {
+        when(client.getTask("bug")).thenReturn(task("bug", "Login", null, BUG, "to do"));
+        when(client.getTask("inside")).thenReturn(task("inside", "Fix the call", "mobile", null, "to do"));
+        when(client.getTask("planned")).thenReturn(task("planned", "Web | Login", "bug", null, "to do"));
+
+        when(client.getTask("nested")).thenReturn(task("nested", "Crash", "bug", BUG, "to do"));
+
+        assertThat(guard.blocks(created("inside", VIVEK))).isFalse();
+        assertThat(guard.blocks(created("planned", SEBASTIAN))).isFalse();
+        // Typed subtasks (a nested Bug, a Defect) aren't limited.
+        assertThat(guard.blocks(created("nested", VIVEK))).isFalse();
+        verify(client, never()).deleteTask(anyString());
     }
 
     @Test

@@ -262,6 +262,13 @@ public class ClickUpClient {
                 .retrieve().toBodilessEntity());
     }
 
+    /**
+     * Deletes a task. ClickUp keeps it in the Workspace's trash, from where it can be restored by hand.
+     */
+    public void deleteTask(String taskId) {
+        http.run("deleteTask", () -> api().delete().uri("/task/{taskId}", taskId).retrieve().toBodilessEntity());
+    }
+
     public void removeCustomField(String taskId, String fieldId) {
         http.run("removeCustomField", () -> api().delete().uri("/task/{taskId}/field/{fieldId}", taskId, fieldId)
                 .retrieve().toBodilessEntity());

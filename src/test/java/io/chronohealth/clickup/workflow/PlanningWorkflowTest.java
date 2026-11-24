@@ -42,6 +42,7 @@ class PlanningWorkflowTest {
     private static final long JOSE = 106501885L;
     private static final long SEBASTIAN = 308507562L;
     private static final long MARTIM = 106791322L;
+    private static final long LUIS = 112510284L;
 
     private final ClickUpClientFactory factory = mock(ClickUpClientFactory.class);
     private final ClickUpClient client = mock(ClickUpClient.class);
@@ -57,32 +58,31 @@ class PlanningWorkflowTest {
     }
 
     @Test
-    void movedToLobbyTheFeatureGoesToThePlanningTeamInsteadOfProduct() {
+    void movedToLobbyEveryoneIsUnassigned() {
         stub(task("f", FEATURE, "in lobby", List.of(MARTIM, JOSE)));
 
         workflow.handle(move(MARTIM, "pending", "in lobby"));
 
-        verify(client).updateTask("f", TaskUpdate.assignees(new AssigneesUpdate(List.of(PEDRO, SEBASTIAN),
-                List.of(MARTIM))));
+        verify(client).updateTask("f", TaskUpdate.assignees(new AssigneesUpdate(List.of(), List.of(MARTIM, JOSE))));
         verify(client, never()).addCommentMentioning(anyString(), anyLong(), anyString());
     }
 
     @Test
-    void leftInLobbyWithNobodyAssignedThePlannersAreBackWithAComment() {
-        stub(task("f", FEATURE, "in lobby", List.of()));
+    void inLobbyOnlyProductAndPlanningMayBeAssigned() {
+        stub(task("f", FEATURE, "in lobby", List.of(MARTIM, SEBASTIAN, LUIS)));
 
-        workflow.handle(assigneeRemoved(SEBASTIAN));
+        workflow.handle(assigneeChanged(MARTIM));
 
-        verify(client).updateTask("f", TaskUpdate.assignees(new AssigneesUpdate(List.of(PEDRO, JOSE, SEBASTIAN),
-                List.of())));
-        verify(client).addCommentMentioning(eq("f"), eq(SEBASTIAN), contains("always needs someone assigned"));
+        verify(client).updateTask("f", TaskUpdate.assignees(new AssigneesUpdate(List.of(), List.of(LUIS))));
+        verify(client).addCommentMentioning(eq("f"), eq(MARTIM), contains("only the Product and Planning teams"));
     }
 
     @Test
-    void aPlannerPickingItUpIsLeftAlone() {
-        stub(task("f", FEATURE, "in lobby", List.of(SEBASTIAN)));
-
-        workflow.handle(assigneeRemoved(SEBASTIAN));
+    void anAdminMayAssignAnyoneAndAnEmptyLobbyIsFine() {
+        stub(task("f", FEATURE, "in lobby", List.of(LUIS)));
+        workflow.handle(assigneeChanged(PEDRO));
+        stub(task("f", FEATURE, "in lobby", List.of()));
+        workflow.handle(assigneeChanged(SEBASTIAN));
 
         verify(client, never()).updateTask(anyString(), any());
     }
@@ -156,8 +156,8 @@ class PlanningWorkflowTest {
         return new ClickUpEvent("k", "wh", "ws", "taskStatusUpdated", "f", List.of(item));
     }
 
-    private static ClickUpEvent assigneeRemoved(long userId) {
-        HistoryItem item = new HistoryItem("h", "1", null, "assignee_rem", null, new User(userId), null, null);
+    private static ClickUpEvent assigneeChanged(long userId) {
+        HistoryItem item = new HistoryItem("h", "1", null, "assignee_add", null, new User(userId), null, null);
         return new ClickUpEvent("k", "wh", "ws", "taskAssigneeUpdated", "f", List.of(item));
     }
 
@@ -172,7 +172,9 @@ class PlanningWorkflowTest {
                         new AuditProperties.Person("308507562", "Sebastian", "member", "mobile", true, null,
                                 List.of("planning", "tech")),
                         new AuditProperties.Person("106791322", "Martim", "member", null, true, null,
-                                List.of("product", "testers"))),
+                                List.of("product", "testers")),
+                        new AuditProperties.Person("112510284", "Luís", "member", "backend", true, null,
+                                List.of("tech"))),
                 base.mainTaskTypes(), base.streams(), base.scheduler(), base.rules());
     }
 }

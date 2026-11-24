@@ -18,6 +18,8 @@ import org.springframework.stereotype.Component;
  *   <li>stream tasks (and sub-subtasks in them): the Tech team;</li>
  *   <li>other tasks: anyone;</li>
  *   <li>stream tags (backend/web/mobile): the Planning team;</li>
+ *   <li>plain subtasks under a Feature, Change, Bug or Defect: the Planning team (stream tasks come from the tags);
+ *       inside a stream task: the Tech team too. Typed subtasks (a Defect, a nested Bug) aren't limited;</li>
  *   <li>priority and Product Priority of a task where work has started: admins only.</li>
  * </ul>
  */
@@ -27,6 +29,8 @@ public class Permissions {
     private static final String IN_TESTING = "in testing";
     private static final Set<String> AFTER_TESTING = Set.of("approved", "complete");
     private static final Set<String> TESTED_FROM = Set.of(IN_TESTING, "approved");
+    private static final String PLAIN = "task";
+    private static final Set<String> MANAGED_PARENTS = Set.of("feature", "change", "bug", "defect");
 
     private final People people;
     private final PlanningProperties planning;
@@ -60,6 +64,29 @@ public class Permissions {
 
     public boolean canChangeStreamTags(Long userId) {
         return people.isAdmin(userId) || people.inTeam(userId, People.PLANNING);
+    }
+
+    /**
+     * @param parent  the task the subtask was created under
+     * @param newType the new subtask's type, lower case ("task", "defect", ...)
+     */
+    public boolean canCreateSubtask(Long userId, Classification parent, String newType) {
+        // Only plain subtasks (would-be stream tasks) under the managed task types, or inside a stream task, are
+        // checked: typed ones (a Feature in an Epic, a nested Bug, a Defect), Epics and plain Tasks are left alone.
+        boolean managedParent = parent.kind() == Kind.STREAM
+                || (parent.kind() == Kind.MAIN && MANAGED_PARENTS.contains(parent.type()));
+        if (!PLAIN.equals(newType) || !managedParent) {
+            return true;
+        }
+        if (people.isAdmin(userId) || people.inTeam(userId, People.PLANNING)) {
+            return true;
+        }
+        return parent.kind() == Kind.STREAM && people.inTeam(userId, People.TECH);
+    }
+
+    public String whoMayCreateSubtask() {
+        return "Only the Planning team creates subtasks here (stream tasks come from the backend / web / mobile tags),"
+                + " and the Tech team inside a stream task. To report a problem, create a Defect instead.";
     }
 
     public boolean canChangeLockedPriority(Long userId) {
