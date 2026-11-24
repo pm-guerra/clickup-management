@@ -77,6 +77,13 @@ public class PlanningWorkflow implements EventHandler {
         Task task = client.getTask(event.taskId(), true);
         Optional<String> type = taskTypes.typeName(client, event.workspaceId(), task);
         if (type.filter(planning::isPlanned).isEmpty()) {
+            // A Bug only takes its subtasks still waiting in lobby along to to do.
+            if (move.isPresent() && type.filter(planning::subtasksFollow).isPresent()
+                    && planning.isToDo(statusName(move.get().after()))
+                    && Objects.equals(normalize(statusName(move.get().after())),
+                            normalize(task.status() == null ? null : task.status().status()))) {
+                startSubtasks(client, event.workspaceId(), task);
+            }
             return;
         }
         String current = task.status() == null ? null : task.status().status();

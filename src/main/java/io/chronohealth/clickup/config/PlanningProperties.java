@@ -18,6 +18,8 @@ import org.springframework.validation.annotation.Validated;
  * @param toDoStatus           where implementation starts ("to do")
  * @param priorityRequiredTypes tasks of these types can't reach {@code toDoStatus} without a priority (Feature,
  *                             Change, Bug)
+ * @param followTypes          besides the planned types, tasks of these types (Bug) also take their subtasks still
+ *                             in pending or in lobby along when they move to {@code toDoStatus}
  * @param plannerField         People custom field set to the planner who moved the task to {@code toDoStatus}, so
  *                             Octo bot knows whom to ask ("Planner"); empty for none
  */
@@ -30,8 +32,16 @@ public record PlanningProperties(
         String lobbyStatus,
         String toDoStatus,
         List<String> priorityRequiredTypes,
+        List<String> followTypes,
         String plannerField
 ) {
+
+    /**
+     * Whether a task of this type takes its waiting subtasks along to to do (the planned types and {@code followTypes}).
+     */
+    public boolean subtasksFollow(String type) {
+        return isPlanned(type) || (enabled && contains(followTypes, type));
+    }
 
     public boolean hasPlannerField() {
         return plannerField != null && !plannerField.isBlank();

@@ -92,6 +92,8 @@ app:
     lobby-status: in lobby
     to-do-status: to do
     priority-required-types: [Feature, Change, Bug]
+    # Bugs aren't planned, but their subtasks still in in lobby also follow them to to do
+    follow-types: [Bug]
     # Set to the planner who moved it to to do, so Octo bot knows whom to ask its questions
     planner-field: Planner
   audit:

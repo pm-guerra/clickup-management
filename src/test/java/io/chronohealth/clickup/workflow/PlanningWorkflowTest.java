@@ -120,6 +120,17 @@ class PlanningWorkflowTest {
     }
 
     @Test
+    void aBugTakesItsSubtasksWaitingInLobbyAlongToToDo() {
+        stub(task("f", BUG, "to do", List.of(MARTIM), sub("web", null, "in lobby"), sub("done", null, "review")));
+
+        workflow.handle(move(MARTIM, "in lobby", "to do"));
+
+        verify(client).updateTask("web", TaskUpdate.status("to do"));
+        verify(client, never()).updateTask(eq("done"), any());
+        verify(client, never()).setCustomField(anyString(), anyString(), any());
+    }
+
+    @Test
     void bugsAndTasksThatMovedOnAreLeftAlone() {
         stub(task("f", BUG, "in lobby", List.of(MARTIM)));
         workflow.handle(move(MARTIM, "pending", "in lobby"));
