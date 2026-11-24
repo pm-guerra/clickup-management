@@ -121,6 +121,7 @@ app:
       - { id: "106791322", name: Martim, role: member, enforce: true, teams: [product, testers] }
       - { id: "106744781", name: Katya, role: member, enforce: true, teams: [product, testers] }
       - { id: "106773419", name: Nubelson, role: member, stream: web, enforce: true, teams: [product, tech] }
+      - { id: "106529806", name: João, role: member, enforce: true, teams: [product] }
       - { id: "112510284", name: Luís, role: member, stream: backend, enforce: true, teams: [tech] }
       - { id: "278564675", name: Vivek, role: member, stream: mobile, enforce: true, teams: [tech] }
     # Testers move these; devs move the stream tasks under them
