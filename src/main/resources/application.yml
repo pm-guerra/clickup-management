@@ -111,12 +111,12 @@ app:
     # Who's who for the permission rules (ClickUp user ids). Anyone not listed has no permissions.
     people:
       # enforce: their forbidden changes are undone right away (everyone but the admins)
-      # unrestricted: the status rules (in testing / ready_for_dev placement, parents ahead of subtasks)
+      # unrestricted: the status rules (priority at to do, in testing / ready_for_dev placement, parents out of step)
       # don't apply to them; everyone else's moves that break them are undone.
       # The app itself acts as Octo bot (it authorized the OAuth app); its automatic changes are always allowed
       - { id: "106723346", name: Octo bot, role: admin, unrestricted: true }
       - { id: "100796657", name: Pedro, role: admin, unrestricted: true, teams: [planning, tech] }
-      - { id: "106501885", name: José, role: admin, teams: [planning, tech] }
+      - { id: "106501885", name: José, role: admin, unrestricted: true, teams: [planning, tech] }
       - { id: "308507562", name: Sebastian, role: member, stream: mobile, enforce: true, teams: [planning, tech] }
       - { id: "106791322", name: Martim, role: member, enforce: true, teams: [product, testers] }
       - { id: "106744781", name: Katya, role: member, enforce: true, teams: [product, testers] }
