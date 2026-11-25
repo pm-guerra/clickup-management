@@ -18,6 +18,7 @@ import tools.jackson.databind.JsonNode;
 public class StatusMoveRule implements AuditEventRule {
 
     private static final String STATUS_FIELD = "status";
+    private static final String UNKNOWN = "?";
 
     private final People people;
     private final TaskKinds kinds;
@@ -75,15 +76,20 @@ public class StatusMoveRule implements AuditEventRule {
     }
 
 
+    /**
+     * Whether ClickUp reported a previous status we can name. A task created in its first status comes with none, and
+     * so does a payload that carries the key with a null or non-textual value: neither is a move, and there is no
+     * status to put the task back to.
+     */
     static boolean isPresent(JsonNode node) {
-        return node != null && !node.isNull() && !node.isMissingNode()
-                && !(node.isObject() && node.path("status").isMissingNode());
+        return !UNKNOWN.equals(status(node));
     }
 
     static String status(JsonNode node) {
         if (node == null || node.isNull() || node.isMissingNode()) {
-            return "?";
+            return UNKNOWN;
         }
-        return node.isString() ? node.asString() : node.path("status").asString("?");
+        String status = node.isString() ? node.asString() : node.path(STATUS_FIELD).asString(UNKNOWN);
+        return status == null || status.isBlank() ? UNKNOWN : status;
     }
 }

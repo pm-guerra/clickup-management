@@ -72,6 +72,22 @@ class PermissionRulesTest {
     }
 
     @Test
+    void aStatusWithNoPreviousOneIsNotAMove() {
+        // ClickUp reports no usable previous status when a task is created in its first status (the key is there with
+        // a null value). There is nothing to undo, so it is not policed - whoever set it and whatever it was set to.
+        assertThat(statusRule.check(statusChange("feature", MARTIM, "{\"status\":null}", "pending"), context))
+                .isEmpty();
+        assertThat(statusRule.check(statusChange("feature", MARTIM, "{\"status\":\"\"}", "pending"), context))
+                .isEmpty();
+        assertThat(statusRule.check(statusChange("feature", LUIS, "{\"status\":null}", "in progress"), context))
+                .isEmpty();
+
+        // The guards read the same gate, so they do not try to put the task back to an unknown status either.
+        assertThat(StatusMoveRule.isPresent(MAPPER.readTree("{\"status\":null}"))).isFalse();
+        assertThat(StatusMoveRule.isPresent(MAPPER.readTree("{\"status\":\"in lobby\"}"))).isTrue();
+    }
+
+    @Test
     void theProductTeamMovesABugBetweenPendingAndInLobby() {
         assertThat(statusRule.check(move("bug", NUBELSON, "in lobby", "pending"), context)).isEmpty();
         assertThat(statusRule.check(move("bug", NUBELSON, "pending", "in lobby"), context)).isEmpty();
@@ -175,6 +191,12 @@ class PermissionRulesTest {
 
     private static ClickUpEvent move(String taskId, long userId) {
         return move(taskId, userId, "to do", "in progress");
+    }
+
+    private static ClickUpEvent statusChange(String taskId, long userId, String rawBefore, String to) {
+        HistoryItem item = new HistoryItem("h", "1", null, "status", null, new User(userId),
+                MAPPER.readTree(rawBefore), MAPPER.readTree("{\"status\":\"" + to + "\"}"));
+        return new ClickUpEvent("k", "wh", "ws", "taskStatusUpdated", taskId, List.of(item));
     }
 
     private static ClickUpEvent move(String taskId, long userId, String from, String to) {
