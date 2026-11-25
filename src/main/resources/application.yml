@@ -139,8 +139,8 @@ app:
         # Only Task-type subtasks are stream tasks; nested Bugs/Changes/Stories are not
         stream-types: [Task]
         # ready_for_dev is further limited to mobile (status-placement); on hold is left to people
-        allowed-statuses: [pending, in lobby, to do, in progress, blocked, review, ready_for_dev, in development,
-                           complete, waiting info, on hold]
+        allowed-statuses: [pending, in lobby, to do, in progress, blocked, review, merged, ready_for_dev,
+                           in development, complete, waiting info, on hold]
       # Who moves what, by team (see Permissions; checked on each change)
       status-move:
         enabled: true
