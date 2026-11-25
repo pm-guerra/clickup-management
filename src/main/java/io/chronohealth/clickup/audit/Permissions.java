@@ -14,7 +14,8 @@ import org.springframework.stereotype.Component;
  *   <li>Features and Changes (planned work): the Product and Planning teams move them between pending and in lobby,
  *       the Planning team from in lobby to to do, testers from in testing to approved / complete. From to do on they
  *       follow their subtasks, so other moves are for admins only;</li>
- *   <li>other main tasks (Bug, Defect, Epic): testers;</li>
+ *   <li>other main tasks (Bug, Defect, Epic): testers, and a Bug between pending and in lobby also the
+ *       Product team, who write it up there like a Feature;</li>
  *   <li>stream tasks (and sub-subtasks in them): the Tech team;</li>
  *   <li>other tasks: anyone;</li>
  *   <li>stream tags (backend/web/mobile): the Planning team;</li>
@@ -31,6 +32,8 @@ public class Permissions {
     private static final Set<String> TESTED_FROM = Set.of(IN_TESTING, "approved");
     private static final String PLAIN = "task";
     private static final Set<String> MANAGED_PARENTS = Set.of("feature", "change", "bug", "defect");
+    // Not planned, but written up by the Product team like a Feature, so they move these between pending and in lobby
+    private static final Set<String> PRODUCT_WRITE_UP_TYPES = Set.of("bug");
 
     private final People people;
     private final PlanningProperties planning;
@@ -52,7 +55,8 @@ public class Permissions {
             return people.inTeam(userId, People.TECH);
         }
         if (!planning.isPlanned(kind.type())) {
-            return people.inTeam(userId, People.TESTERS);
+            return people.inTeam(userId, People.TESTERS)
+                    || (isProductWriteUp(kind, from, to) && people.inTeam(userId, People.PRODUCT));
         }
         return switch (plannedMove(from, to)) {
             case WRITE_UP -> people.inTeam(userId, People.PRODUCT) || people.inTeam(userId, People.PLANNING);
@@ -98,6 +102,10 @@ public class Permissions {
             return "Only the Tech team and admins may move stream tasks.";
         }
         if (!planning.isPlanned(kind.type())) {
+            if (isProductWriteUp(kind, from, to)) {
+                return "Only the Product team, testers and admins may move a Bug between "
+                        + planning.pendingStatus() + " and " + planning.lobbyStatus() + ".";
+            }
             return "Only testers and admins may move Bugs, Defects and Epics.";
         }
         return switch (plannedMove(from, to)) {
@@ -117,6 +125,14 @@ public class Permissions {
 
     public String whoMayChangeLockedPriority() {
         return "Once work has started, only admins may change the priority or Product Priority.";
+    }
+
+    /**
+     * Whether this is the write-up move (between pending and in lobby) on a task type the Product team writes up
+     * itself although it isn't planned: a Bug.
+     */
+    private boolean isProductWriteUp(Classification kind, String from, String to) {
+        return PRODUCT_WRITE_UP_TYPES.contains(kind.type()) && plannedMove(from, to) == PlannedMove.WRITE_UP;
     }
 
     private enum PlannedMove { WRITE_UP, PLANNED, TESTED, OTHER }

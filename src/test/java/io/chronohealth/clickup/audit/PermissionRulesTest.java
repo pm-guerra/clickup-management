@@ -72,6 +72,20 @@ class PermissionRulesTest {
     }
 
     @Test
+    void theProductTeamMovesABugBetweenPendingAndInLobby() {
+        assertThat(statusRule.check(move("bug", NUBELSON, "in lobby", "pending"), context)).isEmpty();
+        assertThat(statusRule.check(move("bug", NUBELSON, "pending", "in lobby"), context)).isEmpty();
+
+        // Only the write-up move: once a Bug is planned or further along it is the testers' again.
+        assertThat(statusRule.check(move("bug", NUBELSON, "in lobby", "to do"), context)).singleElement()
+                .asString().contains("Only testers and admins may move Bugs, Defects and Epics.");
+        // And it is the Product team's move, not the Tech team's.
+        assertThat(statusRule.check(move("bug", LUIS, "in lobby", "pending"), context)).singleElement()
+                .asString().contains("Only the Product team, testers and admins may move a Bug between pending"
+                        + " and in lobby.");
+    }
+
+    @Test
     void productAndPlanningTeamsMoveAFeatureBetweenPendingAndInLobby() {
         assertThat(statusRule.check(move("feature", MARTIM, "pending", "in lobby"), context)).isEmpty();
         assertThat(statusRule.check(move("feature", SEBASTIAN, "in lobby", "pending"), context)).isEmpty();
