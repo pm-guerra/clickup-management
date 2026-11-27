@@ -103,6 +103,32 @@ class StatusRulesGuardTest {
     }
 
     @Test
+    void aParentWaitingForAnswersMayGoBackToToDoAheadOfItsSubtasks() {
+        Task bug = new Task("bug", "name", null, BUG, new TaskStatus("to do", null, null),
+                new Priority("2", "high"), new IdRef("list"), List.of(), List.of(), List.of(),
+                List.of(task("s1", "bug", null, "waiting info"), task("s2", "bug", null, "waiting info")));
+        when(client.getTask("bug")).thenReturn(bug);
+        when(client.getTask("bug", true)).thenReturn(bug);
+
+        assertThat(guard.blocks(move("bug", MARTIM, "waiting info", "to do"))).isFalse();
+
+        verify(client, never()).updateTask(anyString(), any());
+    }
+
+    @Test
+    void aParentWithStartedSubtasksCantGoBackToToDo() {
+        Task bug = new Task("bug", "name", null, BUG, new TaskStatus("to do", null, null),
+                new Priority("2", "high"), new IdRef("list"), List.of(), List.of(), List.of(),
+                List.of(task("s1", "bug", null, "waiting info"), task("s2", "bug", null, "in progress")));
+        when(client.getTask("bug")).thenReturn(bug);
+        when(client.getTask("bug", true)).thenReturn(bug);
+
+        assertThat(guard.blocks(move("bug", MARTIM, "waiting info", "to do"))).isTrue();
+
+        verify(client).updateTask("bug", TaskUpdate.status("in progress"));
+    }
+
+    @Test
     void aBugCantReachToDoWithoutAPriority() {
         bug("to do");
 

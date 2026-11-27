@@ -31,8 +31,11 @@ import tools.jackson.databind.JsonNode;
  *   <li>in lobby, only Product and Planning team members may be assigned: anyone else assigned by someone who isn't
  *       an admin is unassigned again, with a comment;</li>
  *   <li>moved to to do: its stream subtasks still in pending or in lobby go to to do too, and the planner who moved it
- *       is recorded in the Planner field (Octo bot asks them its questions).</li>
+ *       is recorded in the Planner field (Octo bot asks them its questions);</li>
+ *   <li>moved from waiting info back to to do (Octo bot's questions are answered): its stream subtasks in waiting info
+ *       go back to to do too.</li>
  * </ul>
+ * Bugs ({@link PlanningProperties#followTypes()}) take their subtasks along in both cases too.
  * Who may make these moves is checked before this runs (see EnforcementGuard), and so is the priority (see
  * StatusRulesGuard): an undone move never gets here.
  */
@@ -77,12 +80,12 @@ public class PlanningWorkflow implements EventHandler {
         Task task = client.getTask(event.taskId(), true);
         Optional<String> type = taskTypes.typeName(client, event.workspaceId(), task);
         if (type.filter(planning::isPlanned).isEmpty()) {
-            // A Bug only takes its subtasks still waiting in lobby along to to do.
+            // A Bug only takes its waiting subtasks along to to do.
             if (move.isPresent() && type.filter(planning::subtasksFollow).isPresent()
                     && planning.isToDo(statusName(move.get().after()))
                     && Objects.equals(normalize(statusName(move.get().after())),
                             normalize(task.status() == null ? null : task.status().status()))) {
-                startSubtasks(client, event.workspaceId(), task);
+                startSubtasks(client, event.workspaceId(), task, statusName(move.get().before()));
             }
             return;
         }
@@ -95,8 +98,10 @@ public class PlanningWorkflow implements EventHandler {
             } else if (isPending(from) && planning.isLobby(to)) {
                 unassignEveryone(client, task);
             } else if (planning.isToDo(to)) {
-                startSubtasks(client, event.workspaceId(), task);
-                recordPlanner(client, task, move.get().user());
+                startSubtasks(client, event.workspaceId(), task, from);
+                if (!isWaitingInfo(from)) {
+                    recordPlanner(client, task, move.get().user());
+                }
             }
         } else if (planning.isLobby(current)) {
             removeOutsideAssignees(client, task, lastAssigneeChangeBy(event));
@@ -138,10 +143,16 @@ public class PlanningWorkflow implements EventHandler {
                 : task.assignees().stream().map(User::id).filter(Objects::nonNull).toList();
     }
 
-    private void startSubtasks(ClickUpClient client, String workspaceId, Task task) {
+    /**
+     * Moves the direct subtasks still waiting to to do: those in pending or in lobby, and, when the task itself came
+     * back from waiting info (its questions answered), those in waiting info too. Defects keep their own lifecycle.
+     */
+    private void startSubtasks(ClickUpClient client, String workspaceId, Task task, String from) {
+        boolean questionsAnswered = isWaitingInfo(from);
         List<Task> waiting = task.subtasksOrEmpty().stream()
                 .filter(s -> task.id().equals(s.parent()))
-                .filter(s -> s.status() != null && planning.isBeforePlanningDone(s.status().status()))
+                .filter(s -> s.status() != null && (planning.isBeforePlanningDone(s.status().status())
+                        || (questionsAnswered && isWaitingInfo(s.status().status()))))
                 .filter(s -> taskTypes.typeName(client, workspaceId, s)
                         .map(t -> ignoredSubtaskTypes.stream().noneMatch(i -> i.equalsIgnoreCase(t.trim())))
                         .orElse(true))
@@ -178,6 +189,10 @@ public class PlanningWorkflow implements EventHandler {
         client.setCustomField(task.id(), field.get().id(),
                 java.util.Map.of("add", List.of(mover.id()), "rem", remove));
         log.info("Recorded user {} as the planner of {}", mover.id(), task.id());
+    }
+
+    private static boolean isWaitingInfo(String status) {
+        return ParentStatusPolicy.WAITING_INFO.equals(normalize(status));
     }
 
     private boolean isPending(String status) {

@@ -27,7 +27,9 @@ import org.springframework.stereotype.Component;
  *   <li>a Feature, Change or Bug moved to to do without a priority ({@link PlanningProperties}): moved back to where
  *       it was;</li>
  *   <li>a parent moved out of step with its subtasks, ahead or back ({@link ParentStatusPolicy}): moved to where
- *       its subtasks put it. A rejectable parent (a Defect) may be moved back: that's testing rejecting it.</li>
+ *       its subtasks put it. A rejectable parent (a Defect) may be moved back: that's testing rejecting it. A
+ *       Feature, Change or Bug whose subtasks all wait in waiting info may be moved back to to do: its questions are
+ *       answered, and its subtasks follow it (see PlanningWorkflow).</li>
  * </ul>
  * The person is mentioned in a comment and the event is blocked, so no workflow reacts to the undone move. Runs after
  * {@link EnforcementGuard}, which handles who may move what.
@@ -112,6 +114,12 @@ public class StatusRulesGuard implements EventGuard {
             return false;
         }
         Optional<String> derived = parentStatuses.derivedStatus(context.taskWithSubtasks(taskId), context);
+        boolean questionsAnswered = ParentStatusPolicy.WAITING_INFO.equalsIgnoreCase(previous.trim())
+                && planning.isToDo(attempted) && type.filter(planning::subtasksFollow).isPresent()
+                && derived.filter(ParentStatusPolicy.WAITING_INFO::equals).isPresent();
+        if (questionsAnswered) {
+            return false;
+        }
         boolean outOfStep = derived.isPresent() && (parentStatuses.isRejectable(task, context)
                 ? ParentStatusPolicy.isAhead(attempted, derived.get())
                 : ParentStatusPolicy.isOutOfStep(attempted, derived.get()));

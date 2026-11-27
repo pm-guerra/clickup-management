@@ -124,6 +124,14 @@ class PermissionRulesTest {
     }
 
     @Test
+    void thePlanningTeamMovesAFeatureBackToToDoOnceItsQuestionsAreAnswered() {
+        assertThat(statusRule.check(move("feature", SEBASTIAN, "waiting info", "to do"), context)).isEmpty();
+
+        assertThat(statusRule.check(move("feature", MARTIM, "waiting info", "to do"), context)).singleElement()
+                .asString().contains("Only the Planning team and admins").contains("waiting info");
+    }
+
+    @Test
     void testersApproveAFeatureAndNobodyElseMovesItOnceStarted() {
         assertThat(statusRule.check(move("feature", MARTIM, "in testing", "approved"), context)).isEmpty();
         assertThat(statusRule.check(move("feature", MARTIM, "approved", "complete"), context)).isEmpty();

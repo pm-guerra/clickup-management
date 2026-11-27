@@ -12,7 +12,8 @@ import org.springframework.stereotype.Component;
  * (Pedro, José, Octo bot) may do everything; everyone else by team:
  * <ul>
  *   <li>Features and Changes (planned work): the Product and Planning teams move them between pending and in lobby,
- *       the Planning team from in lobby to to do, testers from in testing to approved / complete. From to do on they
+ *       the Planning team from in lobby to to do (and from waiting info back to to do once Octo bot's questions are
+ *       answered), testers from in testing to approved / complete. From to do on they
  *       follow their subtasks, so other moves are for admins only;</li>
  *   <li>other main tasks (Bug, Defect, Epic): testers, and a Bug between pending and in lobby also the
  *       Product team, who write it up there like a Feature;</li>
@@ -28,6 +29,7 @@ import org.springframework.stereotype.Component;
 public class Permissions {
 
     private static final String IN_TESTING = "in testing";
+    private static final String WAITING_INFO = "waiting info";
     private static final Set<String> AFTER_TESTING = Set.of("approved", "complete");
     private static final Set<String> TESTED_FROM = Set.of(IN_TESTING, "approved");
     private static final String PLAIN = "task";
@@ -60,7 +62,7 @@ public class Permissions {
         }
         return switch (plannedMove(from, to)) {
             case WRITE_UP -> people.inTeam(userId, People.PRODUCT) || people.inTeam(userId, People.PLANNING);
-            case PLANNED -> people.inTeam(userId, People.PLANNING);
+            case PLANNED, ANSWERED -> people.inTeam(userId, People.PLANNING);
             case TESTED -> people.inTeam(userId, People.TESTERS);
             case OTHER -> false;
         };
@@ -113,6 +115,8 @@ public class Permissions {
                     + planning.pendingStatus() + " and " + planning.lobbyStatus() + ".";
             case PLANNED -> "Only the Planning team and admins may move a Feature or Change to "
                     + planning.toDoStatus() + ".";
+            case ANSWERED -> "Only the Planning team and admins may move a Feature or Change from waiting info back to "
+                    + planning.toDoStatus() + ".";
             case TESTED -> "Only testers and admins may move a Feature or Change to approved or complete.";
             case OTHER -> "Only admins may move a Feature or Change from '" + from + "' to '" + to
                     + "': from " + planning.toDoStatus() + " on it follows its subtasks.";
@@ -135,7 +139,7 @@ public class Permissions {
         return PRODUCT_WRITE_UP_TYPES.contains(kind.type()) && plannedMove(from, to) == PlannedMove.WRITE_UP;
     }
 
-    private enum PlannedMove { WRITE_UP, PLANNED, TESTED, OTHER }
+    private enum PlannedMove { WRITE_UP, PLANNED, ANSWERED, TESTED, OTHER }
 
     private PlannedMove plannedMove(String from, String to) {
         if (planning.isBeforePlanningDone(from) && planning.isBeforePlanningDone(to)) {
@@ -143,6 +147,9 @@ public class Permissions {
         }
         if (planning.isLobby(from) && planning.isToDo(to)) {
             return PlannedMove.PLANNED;
+        }
+        if (WAITING_INFO.equals(normalize(from)) && planning.isToDo(to)) {
+            return PlannedMove.ANSWERED;
         }
         if (TESTED_FROM.contains(normalize(from)) && AFTER_TESTING.contains(normalize(to))) {
             return PlannedMove.TESTED;

@@ -131,6 +131,37 @@ class PlanningWorkflowTest {
     }
 
     @Test
+    void backToToDoFromWaitingInfoItsWaitingSubtasksFollowAndThePlannerIsKept() {
+        stub(withPlanner(task("f", FEATURE, "to do", List.of(PEDRO), sub("web", null, "waiting info"),
+                sub("mobile", null, "waiting info"), sub("defect", DEFECT, "waiting info")), "[{\"id\":" + PEDRO + "}]"));
+
+        workflow.handle(move(SEBASTIAN, "waiting info", "to do"));
+
+        verify(client).updateTask("web", TaskUpdate.status("to do"));
+        verify(client).updateTask("mobile", TaskUpdate.status("to do"));
+        verify(client, never()).updateTask(eq("defect"), any());
+        verify(client, never()).setCustomField(anyString(), anyString(), any());
+    }
+
+    @Test
+    void aBugBackFromWaitingInfoTakesItsSubtasksAlong() {
+        stub(task("f", BUG, "to do", List.of(), sub("web", null, "waiting info")));
+
+        workflow.handle(move(MARTIM, "waiting info", "to do"));
+
+        verify(client).updateTask("web", TaskUpdate.status("to do"));
+    }
+
+    @Test
+    void subtasksInWaitingInfoStayWhenTheParentComesFromLobby() {
+        stub(task("f", FEATURE, "to do", List.of(), sub("web", null, "waiting info")));
+
+        workflow.handle(move(SEBASTIAN, "in lobby", "to do"));
+
+        verify(client, never()).updateTask(eq("web"), any());
+    }
+
+    @Test
     void bugsAndTasksThatMovedOnAreLeftAlone() {
         stub(task("f", BUG, "in lobby", List.of(MARTIM)));
         workflow.handle(move(MARTIM, "pending", "in lobby"));
